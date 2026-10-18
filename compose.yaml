@@ -1,0 +1,15 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: detaihub
+      MYSQL_USER: detaihub
+      MYSQL_PASSWORD: ${DB_PASSWORD:-LocalStudy2026!}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-LocalRoot2026!}
+    ports: ["127.0.0.1:3307:3306"]
+    volumes: ["mysql-data:/var/lib/mysql"]
+  mailpit:
+    image: axllent/mailpit:v1.27
+    ports: ["127.0.0.1:1025:1025", "127.0.0.1:8025:8025"]
+volumes:
+  mysql-data:
