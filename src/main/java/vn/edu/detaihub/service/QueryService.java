@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.detaihub.dto.*;
 import vn.edu.detaihub.model.*;
+import vn.edu.detaihub.repository.*;
 import vn.edu.detaihub.repository.DomainRepository;
 import vn.edu.detaihub.security.ActorService;
 
@@ -56,6 +57,15 @@ public class QueryService {
   private final GroupService groups;
   private final AssessmentService assessment;
   private final AnnouncementService announcements;
+  private final StudentGroupRepository groupRepo;
+  private final GroupMemberRepository memberRepo;
+  private final StudentRepository studentRepo;
+  private final TopicRegistrationRepository registrationRepo;
+  private final TopicRepository topicRepo;
+  private final RegistrationCycleRepository cycleRepo;
+  private final SubmissionRepository submissionRepo;
+  private final EvaluationResultRepository evaluationResultRepo;
+  private final UserAccountRepository userAccountRepo;
 
   private String utcTime(LocalDateTime d) {
     return d == null
@@ -213,31 +223,31 @@ public class QueryService {
   }
 
   public List<Views.Group> groups() {
-    return db.all(StudentGroup.class).stream()
-        .filter(groups::canViewGroup)
+    return groups.visibleGroups().stream()
         .map(this::groupView)
         .toList();
   }
 
   public Views.Group group(Long id) {
-    var g = db.get(StudentGroup.class, id);
+    var g = groupRepo.findById(id)
+        .orElseThrow(() -> new vn.edu.detaihub.exception.RuleException("Không tìm thấy nhóm.", 404));
     actor.allow(groups.canViewGroup(g));
     return groupView(g);
   }
 
   private Views.Group groupView(StudentGroup g) {
-    var c = db.get(RegistrationCycle.class, g.getCycleId());
+    var c = cycleRepo.findById(g.getCycleId()).orElse(null);
+    String cycleName = c == null ? "—" : c.getName();
+    int minMembers = c == null ? 0 : c.getMinMembers();
+    int maxMembers = c == null ? 0 : c.getMaxMembers();
     boolean own = groups.member(g.getId());
     boolean lead = groups.leader(g);
     var members =
-        db.all(GroupMember.class).stream()
-            .filter(
-                m ->
-                    m.getGroupId().equals(g.getId())
-                        && Set.of("ACTIVE", "INVITED").contains(m.getStatus()))
+        memberRepo.findByGroupIdAndStatusIn(g.getId(), List.of("ACTIVE", "INVITED")).stream()
             .map(
                 m -> {
-                  var s = db.get(Student.class, m.getStudentId());
+                  var s = studentRepo.findById(m.getStudentId()).orElse(null);
+                  if (s == null) return null;
                   return new Views.Member(
                       s.getId(),
                       s.getCode(),
@@ -246,52 +256,51 @@ public class QueryService {
                       g.getLeaderId().equals(s.getId()),
                       s.getUserId().equals(actor.user().getId()));
                 })
+            .filter(Objects::nonNull)
             .toList();
     return new Views.Group(
         g.getId(),
         g.getName(),
         g.getStatus(),
         g.getCycleId(),
-        c.getName(),
-        c.getMinMembers(),
-        c.getMaxMembers(),
+        cycleName,
+        minMembers,
+        maxMembers,
         lead,
         own,
         members.stream().anyMatch(m -> m.me() && m.status().equals("INVITED")),
         g.getStatus().equals("FORMING")
+            && c != null
             && TopicService.running(c)
             && TopicService.now().isBefore(c.getStudentEnd()),
         members);
   }
 
   public List<Views.Registration> registrations() {
-    return db.all(TopicRegistration.class).stream()
-        .filter(groups::canView)
+    return groups.visibleRegistrations().stream()
         .map(this::registrationView)
         .toList();
   }
 
   public Views.Registration registration(Long id) {
-    var r = db.get(TopicRegistration.class, id);
+    var r = registrationRepo.findById(id)
+        .orElseThrow(() -> new vn.edu.detaihub.exception.RuleException("Không tìm thấy đơn đăng ký.", 404));
     actor.allow(groups.canView(r));
     return registrationView(r);
   }
 
   private Views.Registration registrationView(TopicRegistration r) {
-    var g = db.get(StudentGroup.class, r.getGroupId());
-    var t = db.get(Topic.class, r.getTopicId());
+    var g = groupRepo.findById(r.getGroupId()).orElseThrow();
+    var t = topicRepo.findById(r.getTopicId()).orElseThrow();
     var ca = assessment.councilAssignment(r.getId());
     var council = ca.map(a -> db.get(ReviewCouncil.class, a.getCouncilId()));
-    String score =
-        db.all(EvaluationResult.class).stream()
-            .filter(
-                e ->
-                    e.getRegistrationId().equals(r.getId())
-                        && e.getStatus().equals("PUBLISHED")
-                        && maySeeResult(r))
-            .map(e -> e.getFinalScore().toString())
-            .findFirst()
-            .orElse(null);
+    var cycle = cycleRepo.findById(g.getCycleId()).orElse(null);
+    String score = null;
+    if (maySeeResult(r)) {
+      score = evaluationResultRepo.findByRegistrationIdAndStatus(r.getId(), "PUBLISHED")
+          .map(e -> e.getFinalScore().toString())
+          .orElse(null);
+    }
     return new Views.Registration(
         r.getId(),
         g.getId(),
@@ -299,7 +308,7 @@ public class QueryService {
         t.getId(),
         t.getTitle(),
         g.getCycleId(),
-        db.get(RegistrationCycle.class, g.getCycleId()).getName(),
+        cycle != null ? cycle.getName() : "—",
         r.getStatus(),
         r.getNote(),
         groups.leader(g),
@@ -314,8 +323,7 @@ public class QueryService {
 
   public List<Views.Submission> submissions(Long registrationId) {
     registration(registrationId);
-    return db.all(Submission.class).stream()
-        .filter(s -> s.getRegistrationId().equals(registrationId))
+    return submissionRepo.findByRegistrationId(registrationId).stream()
         .map(
             s ->
                 new Views.Submission(

@@ -95,11 +95,17 @@ public class SecurityConfig {
                     SecurityContextHolder.clearContext();
                     if (req.getSession(false) != null) req.getSession(false).invalidate();
                   } else {
-                    var fresh = details().loadUserByUsername(auth.getName());
-                    SecurityContextHolder.getContext()
-                        .setAuthentication(
-                            new UsernamePasswordAuthenticationToken(
-                                fresh, auth.getCredentials(), fresh.getAuthorities()));
+                    var sessionVersion = session == null ? null : (Integer) session.getAttribute("loadedSecurityVersion");
+                    if (sessionVersion == null || !sessionVersion.equals(u.getSecurityVersion())) {
+                      var fresh = details().loadUserByUsername(auth.getName());
+                      SecurityContextHolder.getContext()
+                          .setAuthentication(
+                              new UsernamePasswordAuthenticationToken(
+                                  fresh, auth.getCredentials(), fresh.getAuthorities()));
+                      if (session != null) {
+                        session.setAttribute("loadedSecurityVersion", u.getSecurityVersion());
+                      }
+                    }
                   }
                 }
                 chain.doFilter(req, res);

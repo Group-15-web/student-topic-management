@@ -14,6 +14,9 @@ import vn.edu.detaihub.repository.*;
 @Transactional(readOnly = true)
 public class ActorService {
   private final UserAccountRepository users;
+  private final UserRoleRepository userRoleRepo;
+  private final StudentRepository studentRepo;
+  private final LecturerRepository lecturerRepo;
   private final DomainRepository db;
 
   public UserAccount user() {
@@ -26,16 +29,8 @@ public class ActorService {
   }
 
   public Set<String> roles(Long userId) {
-    var ids =
-        db.all(UserRole.class).stream()
-            .filter(x -> x.getUserId().equals(userId))
-            .map(UserRole::getRoleId)
-            .toList();
-    return new HashSet<>(
-        db.all(Role.class).stream()
-            .filter(x -> ids.contains(x.getId()))
-            .map(Role::getCode)
-            .toList());
+    // Tối ưu hóa: Query trực tiếp qua B-Tree Index của MySQL thay vì Full Table Scan db.all()
+    return new HashSet<>(userRoleRepo.findRoleCodesByUserId(userId));
   }
 
   public boolean has(String role) {
@@ -56,16 +51,14 @@ public class ActorService {
   }
 
   public Student student() {
-    return db.all(Student.class).stream()
-        .filter(x -> x.getUserId().equals(user().getId()))
-        .findFirst()
+    // Tối ưu hóa: Tìm profile theo userId bằng B-Tree Index
+    return studentRepo.findByUserId(user().getId())
         .orElseThrow(() -> new AccessDeniedException("Cần hồ sơ sinh viên."));
   }
 
   public Lecturer lecturer() {
-    return db.all(Lecturer.class).stream()
-        .filter(x -> x.getUserId().equals(user().getId()))
-        .findFirst()
+    // Tối ưu hóa: Tìm profile theo userId bằng B-Tree Index
+    return lecturerRepo.findByUserId(user().getId())
         .orElseThrow(() -> new AccessDeniedException("Cần hồ sơ giảng viên."));
   }
 
