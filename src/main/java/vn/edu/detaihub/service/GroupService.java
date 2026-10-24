@@ -106,7 +106,7 @@ public class GroupService {
     actor.need("STUDENT");
     var s = studentRepo.findByIdWithLock(actor.student().getId())
         .orElseThrow(() -> new RuleException("Không tìm thấy hồ sơ sinh viên.", 404));
-    require(s.getActiveGroupId() == null, "Bạn đã có nhóm đang thực hiện.");
+    require(!memberRepo.hasActiveGroupInCycle(s.getId(), f.getCycleId()), "Bạn đã có nhóm đang hoạt động trong đợt này.");
     var c = db.get(RegistrationCycle.class, f.getCycleId());
     require(
         TopicService.running(c) && TopicService.now().isBefore(c.getStudentEnd()),
@@ -144,7 +144,7 @@ public class GroupService {
     require(!Objects.equals(m.getStatus(), "ACTIVE"), "Sinh viên đã là thành viên của nhóm.");
     require(!Objects.equals(m.getStatus(), "INVITED"), "Sinh viên đã có lời mời đang chờ phản hồi.");
 
-    require(s.getActiveGroupId() == null, "SV đã có nhóm đang hoạt động.");
+    require(!memberRepo.hasActiveGroupInCycle(s.getId(), g.getCycleId()), "Sinh viên đã có nhóm đang hoạt động trong đợt này.");
 
     var cycle = db.get(RegistrationCycle.class, g.getCycleId());
     long activeAndInvited = memberRepo.countByGroupIdAndStatusIn(id, List.of("ACTIVE", "INVITED"));
@@ -170,7 +170,7 @@ public class GroupService {
         .orElseThrow(() -> new RuleException("Không có lời mời đang chờ."));
 
     if (accept) {
-      require(s.getActiveGroupId() == null, "Bạn đã có nhóm khác.");
+      require(!memberRepo.hasActiveGroupInCycle(s.getId(), g.getCycleId()), "Bạn đã có nhóm khác trong đợt này.");
       var cycle = db.get(RegistrationCycle.class, g.getCycleId());
       require(members(id).size() < cycle.getMaxMembers(), "Nhóm đã đủ thành viên.");
       s.setActiveGroupId(id);

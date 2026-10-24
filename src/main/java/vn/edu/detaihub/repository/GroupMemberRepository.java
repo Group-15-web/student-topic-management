@@ -30,4 +30,7 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
 
   @Query("SELECT m.groupId FROM GroupMember m WHERE m.studentId = :studentId AND m.status IN :statuses")
   List<Long> findGroupIdsByStudentIdAndStatusIn(@Param("studentId") Long studentId, @Param("statuses") List<String> statuses);
+
+  @Query("SELECT COUNT(m) > 0 FROM GroupMember m JOIN StudentGroup g ON m.groupId = g.id WHERE m.studentId = :studentId AND g.cycleId = :cycleId AND m.status = 'ACTIVE' AND g.status IN ('FORMING', 'PENDING', 'LOCKED')")
+  boolean hasActiveGroupInCycle(@Param("studentId") Long studentId, @Param("cycleId") Long cycleId);
 }
