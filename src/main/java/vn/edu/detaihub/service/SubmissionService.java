@@ -43,8 +43,8 @@ public class SubmissionService {
     var r = registrationRepo.findByIdWithLock(registrationId)
         .orElseThrow(() -> new RuleException("Không tìm thấy hồ sơ đăng ký đề tài.", 404));
 
-    // 2. Lấy thông tin nhóm và kiểm tra quyền: Chỉ Trưởng nhóm mới có quyền nộp bài
-    var g = groupRepo.findById(r.getGroupId())
+    // 2. Lấy thông tin nhóm và khóa Pessimistic Write: Chống concurrent complete/disband khi upload
+    var g = groupRepo.findByIdWithLock(r.getGroupId())
         .orElseThrow(() -> new RuleException("Không tìm thấy nhóm.", 404));
     actor.allow(groups.leader(g));
 
@@ -69,10 +69,12 @@ public class SubmissionService {
         file != null && !file.isEmpty() && file.getSize() <= 20 * 1024 * 1024,
         "File phải có nội dung và không quá 20 MB.");
 
-    // Ca biên 5: Chuẩn hóa tên file, chống tấn công Path Traversal
+    // Ca biên 5: Chuẩn hóa tên file, chống tấn công Path Traversal, XSS và Header Injection
     String rawName = Optional.ofNullable(file.getOriginalFilename()).orElse("report");
     String name = rawName.replace('\\', '/');
     name = name.substring(name.lastIndexOf('/') + 1).trim();
+    // Sanitize chỉ giữ lại chữ cái, số, gạch dưới, gạch ngang và dấu chấm
+    name = name.replaceAll("[^a-zA-Z0-9._-]", "_");
     require(!name.isBlank() && name.length() < 200, "Tên file không hợp lệ hoặc quá dài.");
 
     String extension =
@@ -152,12 +154,11 @@ public class SubmissionService {
         .map(l -> supervisorRepo.existsByTopicIdAndLecturerId(t.getId(), l.getId()))
         .orElse(false);
 
-    boolean permitted = groups.canView(r)
-        && (!actor.departmentHead(t.getDepartmentId())
-            || actor.faculty()
-            || groups.member(r.getGroupId())
-            || isAssignedReviewer
-            || isSupervisor);
+    boolean permitted = actor.faculty()
+        || groups.member(r.getGroupId())
+        || isSupervisor
+        || isAssignedReviewer
+        || actor.departmentHead(t.getDepartmentId());
     actor.allow(permitted);
 
     // Xác thực đường dẫn an toàn tuyệt đối chống Path Traversal

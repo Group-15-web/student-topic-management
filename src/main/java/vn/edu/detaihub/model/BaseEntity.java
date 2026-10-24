@@ -21,6 +21,6 @@ public abstract class BaseEntity {
 
   @PrePersist
   void stamp() {
-    createdAt = LocalDateTime.now(ZoneOffset.UTC);
+    createdAt = LocalDateTime.now(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
   }
 }
