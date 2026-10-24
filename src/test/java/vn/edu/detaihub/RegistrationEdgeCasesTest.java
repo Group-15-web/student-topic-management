@@ -12,7 +12,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.transaction.support.TransactionTemplate;
 import vn.edu.detaihub.dto.Forms;
 import vn.edu.detaihub.exception.RuleException;
-import vn.edu.detaihub.model.TopicRegistration;
+import vn.edu.detaihub.model.*;
+import vn.edu.detaihub.service.TopicService;
 import vn.edu.detaihub.repository.*;
 import vn.edu.detaihub.service.GroupService;
 
@@ -29,6 +30,10 @@ class RegistrationEdgeCasesTest {
   @Autowired UserDetailsService users;
   @Autowired TopicRegistrationRepository registrationRepo;
   @Autowired TransactionTemplate tx;
+  @Autowired StudentGroupRepository groupRepo;
+  @Autowired StudentRepository studentRepo;
+  @Autowired TopicService topicService;
+  @Autowired CycleEligibleStudentRepository eligibleRepo;
 
   private void asUser(String email) {
     var u = users.loadUserByUsername(email);
@@ -67,5 +72,47 @@ class RegistrationEdgeCasesTest {
 
     assertThatThrownBy(() -> groups.register(f))
         .isInstanceOf(org.springframework.security.access.AccessDeniedException.class);
+  }
+
+  @Test
+  void cancelApprovedRegistrationDisbandsGroupAndReleasesMembers() {
+    Long regId = tx.execute(status -> {
+      var g = groupRepo.findById(1L).orElseThrow();
+      g.setStatus("LOCKED");
+      groupRepo.save(g);
+
+      var r = new TopicRegistration();
+      r.setGroupId(1L);
+      r.setTopicId(1L);
+      r.setStatus("APPROVED");
+      registrationRepo.save(r);
+      return r.getId();
+    });
+
+    asUser("khoa@demo.local");
+    groups.cancelApprovedRegistration(regId, "Sinh viên bỏ dở khóa luận giữa kỳ");
+
+    tx.executeWithoutResult(status -> {
+      var r = registrationRepo.findById(regId).orElseThrow();
+      assertThat(r.getStatus()).isEqualTo("CANCELLED");
+
+      var g = groupRepo.findById(1L).orElseThrow();
+      assertThat(g.getStatus()).isEqualTo("DISBANDED");
+
+      var sv1 = studentRepo.findByCode("SV001").orElseThrow();
+      assertThat(sv1.getActiveGroupId()).isNull();
+    });
+  }
+
+  @Test
+  void bomHandlingInWhitelistImport() {
+    asUser("khoa@demo.local");
+    // Giả lập chuỗi copy-paste có ký tự UTF-8 BOM (﻿)
+    String bomContent = "\uFEFFSV008\nSV009";
+    int count = topicService.importEligibleStudents(1L, null, bomContent);
+    assertThat(count).isGreaterThanOrEqualTo(1);
+
+    var sv8 = studentRepo.findByCode("SV008").orElseThrow();
+    assertThat(eligibleRepo.existsByCycleIdAndStudentId(1L, sv8.getId())).isTrue();
   }
 }

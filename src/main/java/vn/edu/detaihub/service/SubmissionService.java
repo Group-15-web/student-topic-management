@@ -43,14 +43,18 @@ public class SubmissionService {
   @PreAuthorize("hasRole('STUDENT')")
   public void upload(Long registrationId, MultipartFile file) throws IOException {
     actor.need("STUDENT");
-    // 1. Khóa Registration bằng Pessimistic Lock
-    var r = registrationRepo.findByIdWithLock(registrationId)
+    // 0. Đọc snapshot Registration để lấy groupId, chuẩn hóa Global Lock Order: StudentGroup (1) -> TopicRegistration (2)
+    var regSnapshot = registrationRepo.findById(registrationId)
         .orElseThrow(() -> new RuleException("Không tìm thấy hồ sơ đăng ký đề tài.", 404));
 
-    // 2. Lấy thông tin nhóm và khóa Pessimistic Write: Chống concurrent complete/disband khi upload
-    var g = groupRepo.findByIdWithLock(r.getGroupId())
+    // 1. Khóa Pessimistic Write cho StudentGroup trước: Chống concurrent complete/disband và ngăn ngừa Deadlock
+    var g = groupRepo.findByIdWithLock(regSnapshot.getGroupId())
         .orElseThrow(() -> new RuleException("Không tìm thấy nhóm.", 404));
     actor.allow(groups.leader(g));
+
+    // 2. Khóa Pessimistic Write cho TopicRegistration sau
+    var r = registrationRepo.findByIdWithLock(registrationId)
+        .orElseThrow(() -> new RuleException("Không tìm thấy hồ sơ đăng ký đề tài.", 404));
 
     // Ca biên 1: Nhóm phải được duyệt và bị khóa (APPROVED + LOCKED) mới được nộp báo cáo
     require(
@@ -186,21 +190,21 @@ public class SubmissionService {
         .toList();
 
     for (var cycle : activeCycles) {
+      // Gom trước toàn bộ nhóm của đợt này vào map để tránh N+1 queries và so sánh cycleId an toàn
+      var groupsInCycle = groupRepo.findByCycleId(cycle.getId()).stream()
+          .collect(java.util.stream.Collectors.toMap(vn.edu.detaihub.model.StudentGroup::getId, g -> g));
+
       var approvedRegistrations = registrationRepo.findByStatusIn(List.of("APPROVED")).stream()
-          .filter(r -> {
-            var group = groupRepo.findById(r.getGroupId());
-            return group.map(g -> g.getCycleId().equals(cycle.getId())).orElse(false);
-          })
+          .filter(r -> groupsInCycle.containsKey(r.getGroupId()))
           .toList();
 
       for (var reg : approvedRegistrations) {
         // Neu nhom chua co ban nop nao
         boolean hasSubmissions = !submissionRepo.findByRegistrationId(reg.getId()).isEmpty();
         if (!hasSubmissions) {
-          var groupOpt = groupRepo.findById(reg.getGroupId());
+          var group = groupsInCycle.get(reg.getGroupId());
           var topicOpt = topicRepo.findById(reg.getTopicId());
-          if (groupOpt.isPresent() && topicOpt.isPresent()) {
-            var group = groupOpt.get();
+          if (group != null && topicOpt.isPresent()) {
             var topic = topicOpt.get();
             var leaderStudentOpt = studentRepo.findById(group.getLeaderId());
             if (leaderStudentOpt.isPresent()) {

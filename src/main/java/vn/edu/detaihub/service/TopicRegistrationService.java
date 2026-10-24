@@ -141,7 +141,7 @@ public class TopicRegistrationService {
         List<String> allowed = Arrays.stream(c.getTargetIntakes().split("[,;\s]+"))
             .map(String::trim).filter(str -> !str.isEmpty()).toList();
         String studentIntake = s.getIntake() != null ? s.getIntake().trim() : "";
-        require(allowed.contains(studentIntake),
+        require(allowed.stream().anyMatch(studentIntake::equalsIgnoreCase),
             "Thành viên " + s.getCode() + " (Khóa: " + (studentIntake.isEmpty() ? "Chưa cập nhật" : studentIntake)
                 + ") không thuộc đối tượng tham gia đợt này (Yêu cầu: " + c.getTargetIntakes() + ").");
       }
@@ -228,5 +228,53 @@ public class TopicRegistrationService {
     registrationRepo.save(r);
     groupRepo.save(g);
     audit.record("REGISTRATION_" + decision.toUpperCase(), "registration", id, note);
+  }
+
+  @PreAuthorize("hasAnyRole('FACULTY_MANAGER', 'SYSTEM_ADMIN')")
+  public void cancelApprovedRegistration(Long id, String reason) {
+    actor.need("FACULTY_MANAGER", "SYSTEM_ADMIN");
+    require(reason != null && reason.trim().length() >= 5, "Nhập lý do hủy cụ thể (tối thiểu 5 ký tự).");
+
+    // 0. Đọc snapshot trước để lấy khóa ngoại, chuẩn hóa Global Lock Ordering (tránh Deadlock)
+    var target = registrationRepo.findById(id)
+        .orElseThrow(() -> new RuleException("Không tìm thấy đơn đăng ký.", 404));
+
+    // 1. Luôn khóa StudentGroup trước theo thứ tự chuẩn toàn hệ thống
+    var g = groupRepo.findByIdWithLock(target.getGroupId())
+        .orElseThrow(() -> new RuleException("Không tìm thấy nhóm.", 404));
+
+    // 2. Tiếp theo khóa Topic
+    var t = topicRepo.findByIdWithLock(target.getTopicId())
+        .orElseThrow(() -> new RuleException("Không tìm thấy đề tài.", 404));
+
+    // 3. Sau cùng khóa TopicRegistration
+    var r = registrationRepo.findByIdWithLock(id)
+        .orElseThrow(() -> new RuleException("Không tìm thấy đơn đăng ký.", 404));
+
+    require(r.getStatus().equals("APPROVED"), "Chỉ có thể hủy đơn đăng ký đã được phê duyệt.");
+
+    r.setStatus("CANCELLED");
+    r.setNote("Quản trị viên hủy đề tài: " + reason.trim());
+    r.setDecidedBy(actor.user().getId());
+    registrationRepo.save(r);
+
+    // Giải phóng trạng thái nhóm và tất cả thành viên sinh viên
+    g.setStatus("DISBANDED");
+    groupRepo.save(g);
+
+    var activeMembers = groups.members(g.getId());
+    for (var m : activeMembers) {
+      m.setStatus("LEFT");
+      memberRepo.save(m);
+
+      var s = studentRepo.findByIdWithLock(m.getStudentId()).orElse(null);
+      if (s != null && Objects.equals(s.getActiveGroupId(), g.getId())) {
+        s.setActiveGroupId(null);
+        studentRepo.save(s);
+      }
+    }
+
+    audit.record("CANCEL_APPROVED_REGISTRATION", "registration", id, reason);
+    audit.record("DISBAND_GROUP", "group", g.getId(), "Hủy đề tài đã duyệt: " + reason);
   }
 }

@@ -68,12 +68,8 @@ public class QueryService {
   private final UserAccountRepository userAccountRepo;
 
   private String utcTime(LocalDateTime d) {
-    return d == null
-        ? "—"
-        : time(
-            d.atOffset(java.time.ZoneOffset.UTC)
-                .atZoneSameInstant(java.time.ZoneId.of("Asia/Ho_Chi_Minh"))
-                .toLocalDateTime());
+    // BaseEntity.stamp() đã lưu trực tiếp theo múi giờ Asia/Ho_Chi_Minh nên gọi thẳng time(d) tránh cộng dồn +7h
+    return time(d);
   }
 
   private String time(LocalDateTime d) {

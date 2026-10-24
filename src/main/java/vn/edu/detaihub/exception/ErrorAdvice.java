@@ -42,4 +42,17 @@ public class ErrorAdvice {
     mv.addObject("message", message);
     return mv;
   }
+
+  @ExceptionHandler(Exception.class)
+  public Object generalError(Exception ex, HttpServletRequest req, HttpServletResponse res) {
+    if (req.getRequestURI().startsWith("/api/"))
+      return ResponseEntity.status(500).body(Map.of("status", 500, "message", "Lỗi máy chủ nội bộ: " + ex.getMessage()));
+    res.setStatus(500);
+    var mv = new ModelAndView("error");
+    mv.addObject("code", 500);
+    mv.addObject("message", ex.getMessage() != null && !ex.getMessage().isBlank()
+        ? ex.getMessage()
+        : "Đã xảy ra lỗi hệ thống. Vui lòng quay lại và thử lại.");
+    return mv;
+  }
 }

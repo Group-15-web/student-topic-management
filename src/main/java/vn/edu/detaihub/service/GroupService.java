@@ -110,7 +110,7 @@ public class GroupService {
       List<String> allowed = Arrays.stream(c.getTargetIntakes().split("[,;\s]+"))
           .map(String::trim).filter(str -> !str.isEmpty()).toList();
       String studentIntake = s.getIntake() != null ? s.getIntake().trim() : "";
-      require(allowed.contains(studentIntake),
+      require(allowed.stream().anyMatch(studentIntake::equalsIgnoreCase),
           "Sinh viên " + s.getCode() + " (Khóa: " + (studentIntake.isEmpty() ? "Chưa cập nhật" : studentIntake)
               + ") không thuộc đối tượng tham gia đợt này (Yêu cầu: " + c.getTargetIntakes() + ").");
     }
@@ -282,6 +282,7 @@ public class GroupService {
     }
 
     // Khóa đồng thời bản ghi của sinh viên được chuyển quyền để đảm bảo nhất quán
+    require(!studentId.equals(g.getLeaderId()), "Sinh viên này hiện đã là trưởng nhóm.");
     var targetStudent = studentRepo.findByIdWithLock(studentId)
         .orElseThrow(() -> new RuleException("Không tìm thấy sinh viên được chỉ định.", 404));
     require(Objects.equals(targetStudent.getActiveGroupId(), id), "Sinh viên không thuộc nhóm này.");
@@ -324,5 +325,10 @@ public class GroupService {
   @PreAuthorize("hasAnyRole('STUDENT', 'FACULTY_MANAGER')")
   public void decision(Long id, String decision, String note) {
     registrationService.decision(id, decision, note);
+  }
+
+  @PreAuthorize("hasAnyRole('FACULTY_MANAGER', 'SYSTEM_ADMIN')")
+  public void cancelApprovedRegistration(Long id, String reason) {
+    registrationService.cancelApprovedRegistration(id, reason);
   }
 }

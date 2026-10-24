@@ -236,6 +236,15 @@ public class PageController {
     return done("/registrations/" + id, ra);
   }
 
+  @PostMapping("/registrations/{id}/cancel")
+  public String cancelRegistration(
+      @PathVariable Long id,
+      @RequestParam(defaultValue = "") String reason,
+      RedirectAttributes ra) {
+    groups.cancelApprovedRegistration(id, reason);
+    return done("/registrations/" + id, ra);
+  }
+
   @PostMapping("/registrations/{id}/submissions")
   public String upload(
       @PathVariable Long id, @RequestParam MultipartFile file, RedirectAttributes ra)

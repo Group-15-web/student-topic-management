@@ -142,6 +142,7 @@ public class TopicService {
         String line;
         while ((line = reader.readLine()) != null) {
           line = line.trim();
+          if (line.startsWith("\uFEFF")) line = line.substring(1).trim();
           if (line.isEmpty() || line.startsWith("#") || line.toLowerCase().startsWith("mssv")) continue;
           // Hỗ trợ dòng có dấu phẩy hoặc tab (MSSV,GhiChu hoặc chỉ MSSV)
           String[] parts = line.split("[,;\t]");
@@ -158,6 +159,7 @@ public class TopicService {
     if (manualCodes != null && !manualCodes.trim().isEmpty()) {
       for (String row : manualCodes.split("[\r\n,;]+")) {
         row = row.trim();
+        if (row.startsWith("\uFEFF")) row = row.substring(1).trim();
         if (!row.isEmpty()) {
           codesToProcess.add(row);
         }
@@ -186,7 +188,14 @@ public class TopicService {
 
   public void deleteCycle(Long id) {
     actor.need("FACULTY_MANAGER");
-    db.delete(db.get(RegistrationCycle.class, id));
+    var c = db.get(RegistrationCycle.class, id);
+    boolean hasGroups = db.all(StudentGroup.class).stream().anyMatch(g -> Objects.equals(g.getCycleId(), id));
+    boolean hasTopics = db.all(Topic.class).stream().anyMatch(t -> Objects.equals(t.getCycleId(), id));
+    boolean hasCouncils = db.all(ReviewCouncil.class).stream().anyMatch(rc -> Objects.equals(rc.getCycleId(), id));
+    require(!hasGroups && !hasTopics && !hasCouncils,
+        "Không thể xóa đợt đăng ký đã phát sinh dữ liệu (đề tài, nhóm hoặc hội đồng). Vui lòng chuyển trạng thái đợt sang CLOSED thay vì xóa.");
+    eligibleRepo.deleteByCycleId(id);
+    db.delete(c);
     audit.record("DELETE_CYCLE", "cycle", id, "");
   }
 

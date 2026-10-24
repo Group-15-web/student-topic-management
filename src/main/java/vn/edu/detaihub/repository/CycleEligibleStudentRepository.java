@@ -22,4 +22,7 @@ public interface CycleEligibleStudentRepository extends JpaRepository<CycleEligi
 
   @Query("SELECT e.studentId FROM CycleEligibleStudent e WHERE e.cycleId = :cycleId")
   List<Long> findStudentIdsByCycleId(@Param("cycleId") Long cycleId);
+  @org.springframework.data.jpa.repository.Modifying
+  @org.springframework.data.jpa.repository.Query("DELETE FROM CycleEligibleStudent e WHERE e.cycleId = :cycleId")
+  void deleteByCycleId(@org.springframework.data.repository.query.Param("cycleId") Long cycleId);
 }
