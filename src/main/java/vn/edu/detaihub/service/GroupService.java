@@ -24,6 +24,7 @@ public class GroupService {
   private final ActorService actor;
   private final AuditService audit;
   private final TopicRegistrationService registrationService;
+  private final CycleEligibleStudentRepository eligibleRepo;
 
   public GroupService(
       DomainRepository db,
@@ -33,7 +34,8 @@ public class GroupService {
       TopicRegistrationRepository registrationRepo,
       ActorService actor,
       AuditService audit,
-      @Lazy TopicRegistrationService registrationService) {
+      @Lazy TopicRegistrationService registrationService,
+      CycleEligibleStudentRepository eligibleRepo) {
     this.db = db;
     this.studentRepo = studentRepo;
     this.groupRepo = groupRepo;
@@ -42,6 +44,7 @@ public class GroupService {
     this.actor = actor;
     this.audit = audit;
     this.registrationService = registrationService;
+    this.eligibleRepo = eligibleRepo;
   }
 
   public List<GroupMember> members(Long id) {
@@ -63,7 +66,7 @@ public class GroupService {
   }
 
   public boolean canViewGroup(StudentGroup g) {
-    if (actor.faculty() || member(g.getId())) return true;
+    if (actor.admin() || actor.faculty() || member(g.getId())) return true;
     var currentStudent = studentRepo.findByUserId(actor.user().getId());
     if (currentStudent.isPresent()) {
       boolean invited =
@@ -76,7 +79,7 @@ public class GroupService {
   }
 
   public List<StudentGroup> visibleGroups() {
-    if (actor.faculty()) {
+    if (actor.admin() || actor.faculty()) {
       return groupRepo.findAll();
     }
     var currentStudent = studentRepo.findByUserId(actor.user().getId());
@@ -101,6 +104,22 @@ public class GroupService {
         "Đã hết thời gian thay đổi nhóm.");
   }
 
+
+  private void assertStudentEligibleForCycle(Student s, RegistrationCycle c) {
+    if (c.getTargetIntakes() != null && !c.getTargetIntakes().trim().isEmpty()) {
+      List<String> allowed = Arrays.stream(c.getTargetIntakes().split("[,;\s]+"))
+          .map(String::trim).filter(str -> !str.isEmpty()).toList();
+      String studentIntake = s.getIntake() != null ? s.getIntake().trim() : "";
+      require(allowed.contains(studentIntake),
+          "Sinh viên " + s.getCode() + " (Khóa: " + (studentIntake.isEmpty() ? "Chưa cập nhật" : studentIntake)
+              + ") không thuộc đối tượng tham gia đợt này (Yêu cầu: " + c.getTargetIntakes() + ").");
+    }
+    if (Boolean.TRUE.equals(c.getWhitelistRequired())) {
+      require(eligibleRepo.existsByCycleIdAndStudentId(c.getId(), s.getId()),
+          "Sinh viên " + s.getCode() + " không có tên trong danh sách đủ điều kiện của Khoa cho đợt này.");
+    }
+  }
+
   @PreAuthorize("hasRole('STUDENT')")
   public Long create(Forms.Group f) {
     actor.need("STUDENT");
@@ -111,8 +130,13 @@ public class GroupService {
     require(
         TopicService.running(c) && TopicService.now().isBefore(c.getStudentEnd()),
         "Đợt không còn nhận nhóm.");
+    assertStudentEligibleForCycle(s, c);
+    String trimmedName = f.getName() != null ? f.getName().trim() : "";
+    require(!trimmedName.isEmpty(), "Tên nhóm không được để trống.");
+    require(!groupRepo.existsByCycleIdAndNameIgnoreCase(f.getCycleId(), trimmedName),
+        "Tên nhóm '" + trimmedName + "' đã được sử dụng trong đợt này. Vui lòng chọn tên khác.");
     var g = new StudentGroup();
-    g.setName(f.getName());
+    g.setName(trimmedName);
     g.setCycleId(f.getCycleId());
     g.setLeaderId(s.getId());
     g.setStatus("FORMING");
@@ -147,6 +171,7 @@ public class GroupService {
     require(!memberRepo.hasActiveGroupInCycle(s.getId(), g.getCycleId()), "Sinh viên đã có nhóm đang hoạt động trong đợt này.");
 
     var cycle = db.get(RegistrationCycle.class, g.getCycleId());
+    assertStudentEligibleForCycle(s, cycle);
     long activeAndInvited = memberRepo.countByGroupIdAndStatusIn(id, List.of("ACTIVE", "INVITED"));
     require(activeAndInvited < cycle.getMaxMembers(), "Nhóm đã đủ chỗ (tính cả lời mời đang chờ).");
 
@@ -240,12 +265,21 @@ public class GroupService {
     audit.record("LEAVE_GROUP", "group", id, "");
   }
 
-  @PreAuthorize("hasRole('STUDENT')")
-  public void transfer(Long id, Long studentId) {
+  @PreAuthorize("hasAnyRole('STUDENT', 'SYSTEM_ADMIN')")
+  public void transfer(Long id, Long studentId, String reason) {
     var g = groupRepo.findByIdWithLock(id)
         .orElseThrow(() -> new RuleException("Không tìm thấy nhóm.", 404));
-    actor.allow(leader(g));
-    editable(g);
+
+    boolean isLeader = leader(g);
+    boolean isAdmin = actor.admin();
+    require(isLeader || isAdmin, "Chỉ trưởng nhóm hoặc Quản trị viên mới có quyền chỉ định trưởng nhóm.");
+
+    if (!isAdmin) {
+      editable(g);
+    } else {
+      String cleanReason = reason != null ? reason.trim() : "";
+      require(!cleanReason.isEmpty(), "Admin bắt buộc phải nhập lý do/căn cứ phê duyệt từ Khoa để thực hiện.");
+    }
 
     // Khóa đồng thời bản ghi của sinh viên được chuyển quyền để đảm bảo nhất quán
     var targetStudent = studentRepo.findByIdWithLock(studentId)
@@ -256,9 +290,21 @@ public class GroupService {
         memberRepo.findByGroupIdAndStudentIdAndStatus(id, studentId, "ACTIVE").isPresent();
     require(isActiveMember, "Người nhận phải là thành viên chính thức của nhóm.");
 
+    Long oldLeaderId = g.getLeaderId();
     g.setLeaderId(studentId);
     groupRepo.save(g);
-    audit.record("TRANSFER_LEADER", "group", id, "Chuyển trưởng nhóm");
+
+    if (isAdmin) {
+      audit.record("ADMIN_OVERRIDE_LEADER", "group", id,
+          String.format("Admin đổi trưởng nhóm (Cũ: SV %s -> Mới: SV %s). Căn cứ: %s",
+              oldLeaderId, targetStudent.getCode(), reason.trim()));
+    } else {
+      audit.record("TRANSFER_LEADER", "group", id, "Trưởng nhóm chuyển quyền cho SV " + targetStudent.getCode());
+    }
+  }
+
+  public void transfer(Long id, Long studentId) {
+    transfer(id, studentId, null);
   }
 
   // Delegation methods for backward compatibility during transition

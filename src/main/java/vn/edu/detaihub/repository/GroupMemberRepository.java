@@ -1,5 +1,6 @@
 package vn.edu.detaihub.repository;
 
+import vn.edu.detaihub.dto.Views;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -33,4 +34,18 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
 
   @Query("SELECT COUNT(m) > 0 FROM GroupMember m JOIN StudentGroup g ON m.groupId = g.id WHERE m.studentId = :studentId AND g.cycleId = :cycleId AND m.status = 'ACTIVE' AND g.status IN ('FORMING', 'PENDING', 'LOCKED')")
   boolean hasActiveGroupInCycle(@Param("studentId") Long studentId, @Param("cycleId") Long cycleId);
+
+  @Query("""
+      SELECT new vn.edu.detaihub.dto.Views$MemberItem(
+          m.groupId, s.id, s.userId, s.code, u.fullName, m.status
+      )
+      FROM GroupMember m
+      JOIN Student s ON m.studentId = s.id
+      JOIN UserAccount u ON s.userId = u.id
+      WHERE m.groupId IN :groupIds AND m.status IN :statuses
+  """)
+  List<Views.MemberItem> findMemberItemsByGroupIdInAndStatusIn(
+      @Param("groupIds") List<Long> groupIds,
+      @Param("statuses") List<String> statuses);
+
 }

@@ -33,6 +33,7 @@ public class TopicRegistrationService {
   private final TopicService topics;
   private final GroupService groups;
   private final AuditService audit;
+  private final CycleEligibleStudentRepository eligibleRepo;
 
   public boolean canView(TopicRegistration r) {
     if (actor.faculty() || groups.member(r.getGroupId())) return true;
@@ -126,10 +127,29 @@ public class TopicRegistrationService {
     require(t.getStatus().equals("PUBLISHED"), "Đề tài chưa công bố.");
 
     // Ca biên 4: Kiểm tra sĩ số nhóm đủ chuẩn của đợt
-    int n = groups.members(g.getId()).size();
+    var activeMembers = groups.members(g.getId());
+    int n = activeMembers.size();
     require(
         n >= c.getMinMembers() && n <= c.getMaxMembers(),
         "Nhóm phải có " + c.getMinMembers() + "–" + c.getMaxMembers() + " thành viên.");
+
+    // Ca biên 4.1: Kiểm tra tư cách toàn bộ thành viên trong nhóm (Target Intakes & Whitelist)
+    for (var m : activeMembers) {
+      var s = studentRepo.findById(m.getStudentId())
+          .orElseThrow(() -> new RuleException("Không tìm thấy thông tin thành viên.", 404));
+      if (c.getTargetIntakes() != null && !c.getTargetIntakes().trim().isEmpty()) {
+        List<String> allowed = Arrays.stream(c.getTargetIntakes().split("[,;\s]+"))
+            .map(String::trim).filter(str -> !str.isEmpty()).toList();
+        String studentIntake = s.getIntake() != null ? s.getIntake().trim() : "";
+        require(allowed.contains(studentIntake),
+            "Thành viên " + s.getCode() + " (Khóa: " + (studentIntake.isEmpty() ? "Chưa cập nhật" : studentIntake)
+                + ") không thuộc đối tượng tham gia đợt này (Yêu cầu: " + c.getTargetIntakes() + ").");
+      }
+      if (Boolean.TRUE.equals(c.getWhitelistRequired())) {
+        require(eligibleRepo.existsByCycleIdAndStudentId(c.getId(), s.getId()),
+            "Thành viên " + s.getCode() + " không có tên trong danh sách đủ điều kiện của Khoa.");
+      }
+    }
 
     // Ca biên 5: Nhóm không được có đơn PENDING hoặc APPROVED khác
     boolean alreadyRegistered =

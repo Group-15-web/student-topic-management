@@ -49,6 +49,12 @@ public class RegistrationCycle extends BaseEntity {
   @Column(name = "council_required", nullable = false)
   private Boolean councilRequired;
 
+  @Column(name = "whitelist_required", nullable = false)
+  private Boolean whitelistRequired = false;
+
+  @Column(name = "target_intakes", nullable = true)
+  private String targetIntakes;
+
   @Column(name = "status", nullable = false)
   private String status;
 }
