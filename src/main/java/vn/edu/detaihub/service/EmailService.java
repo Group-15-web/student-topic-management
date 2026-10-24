@@ -115,4 +115,26 @@ public class EmailService {
     require(m.getStatus().equals("PREVIEW"), "Không có bản xem trước.");
     return Path.of(directory).toAbsolutePath().resolve(id + ".eml");
   }
+
+  @Async
+  public void sendDirect(String toEmail, String subject, String bodyText) {
+    try {
+      var message = sender.createMimeMessage();
+      var helper = new MimeMessageHelper(message, true, "UTF-8");
+      helper.setFrom(from);
+      helper.setTo(toEmail);
+      helper.setSubject(subject);
+      helper.setText(bodyText, false);
+      if (mode.equals("smtp")) {
+        sender.send(message);
+      } else if (mode.equals("preview")) {
+        var dir = Path.of(directory).toAbsolutePath();
+        Files.createDirectories(dir);
+        try (var stream = Files.newOutputStream(dir.resolve("direct-" + UUID.randomUUID() + ".eml"))) {
+          message.writeTo(stream);
+        }
+      }
+    } catch (Exception ignored) {
+    }
+  }
 }

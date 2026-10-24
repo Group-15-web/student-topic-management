@@ -16,6 +16,7 @@ import vn.edu.detaihub.exception.RuleException;
 import vn.edu.detaihub.model.*;
 import vn.edu.detaihub.repository.*;
 import vn.edu.detaihub.security.ActorService;
+import vn.edu.detaihub.service.EmailService;
 
 @Service
 @RequiredArgsConstructor
@@ -32,6 +33,9 @@ public class SubmissionService {
   private final ActorService actor;
   private final GroupService groups;
   private final AuditService audit;
+  private final EmailService emailService;
+  private final StudentRepository studentRepo;
+  private final UserAccountRepository userAccountRepo;
 
   @Value("${app.storage}")
   private String storage;
@@ -168,5 +172,55 @@ public class SubmissionService {
     require(Files.exists(path), "File không còn trên storage.");
 
     return new Download(path, s.getFileName(), s.getContentType());
+  }
+
+  @Transactional(readOnly = true)
+  public int remindUpcomingDeadlines(int hoursBefore) {
+    var now = TopicService.now();
+    var threshold = now.plusHours(hoursBefore);
+    int remindedCount = 0;
+
+    var activeCycles = cycleRepo.findAll().stream()
+        .filter(c -> "ACTIVE".equals(c.getStatus()))
+        .filter(c -> c.getSubmissionDeadline() != null && c.getSubmissionDeadline().isAfter(now) && c.getSubmissionDeadline().isBefore(threshold))
+        .toList();
+
+    for (var cycle : activeCycles) {
+      var approvedRegistrations = registrationRepo.findByStatusIn(List.of("APPROVED")).stream()
+          .filter(r -> {
+            var group = groupRepo.findById(r.getGroupId());
+            return group.map(g -> g.getCycleId().equals(cycle.getId())).orElse(false);
+          })
+          .toList();
+
+      for (var reg : approvedRegistrations) {
+        // Neu nhom chua co ban nop nao
+        boolean hasSubmissions = !submissionRepo.findByRegistrationId(reg.getId()).isEmpty();
+        if (!hasSubmissions) {
+          var groupOpt = groupRepo.findById(reg.getGroupId());
+          var topicOpt = topicRepo.findById(reg.getTopicId());
+          if (groupOpt.isPresent() && topicOpt.isPresent()) {
+            var group = groupOpt.get();
+            var topic = topicOpt.get();
+            var leaderStudentOpt = studentRepo.findById(group.getLeaderId());
+            if (leaderStudentOpt.isPresent()) {
+              var userAccountOpt = userAccountRepo.findById(leaderStudentOpt.get().getUserId());
+              if (userAccountOpt.isPresent()) {
+                var user = userAccountOpt.get();
+                String subject = "[Đề Tài Hub] Nhắc nhở: Sắp hết hạn nộp báo cáo đề tài";
+                String body = "Xin chào " + user.getFullName() + " (Trưởng nhóm " + group.getName() + "),\n\n"
+                    + "Đề tài '" + topic.getTitle() + "' của nhóm bạn chỉ còn dưới " + hoursBefore + " giờ nữa là đến hạn nộp báo cáo.\n"
+                    + "Hạn chót: " + cycle.getSubmissionDeadline() + "\n\n"
+                    + "Vui lòng đăng nhập hệ thống Đề Tài Hub và tải lên bản báo cáo đúng hạn.\n\n"
+                    + "Trân trọng,\nBan Quản Lý Khóa Luận / Đề Tài Tốt Nghiệp";
+                emailService.sendDirect(user.getEmail(), subject, body);
+                remindedCount++;
+              }
+            }
+          }
+        }
+      }
+    }
+    return remindedCount;
   }
 }
