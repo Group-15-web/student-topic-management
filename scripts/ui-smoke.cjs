@@ -7,7 +7,8 @@ async function main() {
   const errors=[]; page.on('pageerror',e=>errors.push(e.message));
   await page.goto('http://127.0.0.1:8080/login');
   await page.screenshot({path:'target/screenshots/login.png',fullPage:true});
-  await page.locator('[data-demo="khoa@demo.local"]').click();
+  await page.locator('[name="username"]').fill('khoa@demo.local');
+  await page.locator('[name="password"]').fill('Demo@2026!');
   await Promise.all([page.waitForURL('http://127.0.0.1:8080/'),page.locator('button[type="submit"]').click()]);
   await page.screenshot({path:'target/screenshots/dashboard.png',fullPage:true});
   for(const path of ['/topics','/registrations/1','/forms/cycles','/forms/topics','/accounts']){

@@ -7,11 +7,4 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!confirm(form.dataset.confirm)) event.preventDefault();
     }),
   );
-  document.querySelectorAll('[data-demo]').forEach((button) =>
-    button.addEventListener('click', () => {
-      document.getElementById('login-email').value = button.dataset.demo;
-      document.getElementById('login-password').value = 'Demo@2026!';
-      document.getElementById('login-email').focus();
-    }),
-  );
 });

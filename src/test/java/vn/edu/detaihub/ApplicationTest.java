@@ -112,7 +112,14 @@ class ApplicationTest {
     var login = mvc.perform(get("/login")).andExpect(status().isOk()).andReturn();
     assertThat(login.getResponse().getContentAsString())
         .contains("brand login-brand", "WEB ĐĂNG KÝ ĐỀ TÀI", "/images/logo.png", "name=\"_csrf\"")
-        .doesNotContain("login-story", "FACULTY WORKSPACE");
+        .doesNotContain(
+            "login-story", "FACULTY WORKSPACE", "demo-access", "data-demo",
+            "TRẢI NGHIỆM LOCAL", "@demo.local", "Demo@2026!");
+
+    var script = mvc.perform(get("/js/app.js")).andExpect(status().isOk()).andReturn();
+    assertThat(script.getResponse().getContentAsString())
+        .contains("menu-toggle", "data-confirm")
+        .doesNotContain("data-demo", "Demo@2026!");
 
     var logo =
         mvc.perform(get("/images/logo.png"))
