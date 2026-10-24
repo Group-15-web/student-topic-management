@@ -108,6 +108,29 @@ class ApplicationTest {
   }
 
   @Test
+  void updatedLoginAndSidebarShareBrandAndLogoIsPublic() throws Exception {
+    var login = mvc.perform(get("/login")).andExpect(status().isOk()).andReturn();
+    assertThat(login.getResponse().getContentAsString())
+        .contains("brand login-brand", "WEB ĐĂNG KÝ ĐỀ TÀI", "/images/logo.png", "name=\"_csrf\"")
+        .doesNotContain("login-story", "FACULTY WORKSPACE");
+
+    var logo =
+        mvc.perform(get("/images/logo.png"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType("image/png"))
+            .andReturn();
+    assertThat(logo.getResponse().getContentAsByteArray()).isNotEmpty();
+
+    var dashboard =
+        mvc.perform(get("/").with(user(users.loadUserByUsername("khoa@demo.local"))))
+            .andExpect(status().isOk())
+            .andReturn();
+    assertThat(dashboard.getResponse().getContentAsString())
+        .contains("brand sidebar-brand", "WEB ĐĂNG KÝ ĐỀ TÀI", "/images/logo.png")
+        .doesNotContain("FACULTY WORKSPACE");
+  }
+
+  @Test
   void authenticationAndCsrf() throws Exception {
     mvc.perform(get("/api/v1/topics")).andExpect(status().isUnauthorized());
     mvc.perform(get("/topics")).andExpect(status().is3xxRedirection());

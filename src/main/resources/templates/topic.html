@@ -1,1 +1,191 @@
-<!DOCTYPE html><html lang="vi" xmlns:th="http://www.thymeleaf.org" th:replace="~{layout :: page(~{::main})}"><main><a class="backlink" href="/topics">← Danh sách đề tài</a><div class="page-heading"><div><span class="eyebrow" th:text="${topic.department}"></span><h1 th:text="${topic.title}"></h1><p class="muted" th:text="${topic.cycle}"></p></div><span class="badge" th:text="${topic.status}"></span></div><div class="detail-columns"><section class="panel"><h2>Nội dung đề tài</h2><div class="prose" th:text="${topic.description}"></div><div class="divider"></div><dl><dt>Giảng viên hướng dẫn</dt><dd th:text="${topic.supervisors}"></dd><dt>Người đề xuất</dt><dd th:text="${topic.author}"></dd><dt>Số nhóm đăng ký</dt><dd th:text="${topic.occupied+' / '+topic.maxGroups}"></dd></dl><div class="flash info" th:if="${topic.note != null and !topic.note.isBlank()}" th:text="${topic.note}"></div></section><aside><div class="panel" th:if="${me.has('STUDENT') and topic.status == 'PUBLISHED'}"><h3>Đăng ký thực hiện</h3><p class="muted">Nhóm trưởng đăng ký thay nhóm. Cần đủ thành viên và trong thời gian mở đăng ký.</p><form th:action="@{/registrations}" method="post"><input type="hidden" name="topicId" th:value="${topic.id}"><label>Chọn nhóm của bạn<select name="groupId" required><option value="">Chọn nhóm</option><option th:each="g : ${groups}" th:value="${g.id}" th:text="${g.name}" th:if="${g.cycleId == topic.cycleId}"></option></select></label><button class="button primary full">Đăng ký đề tài ↗</button></form><a class="text-link" href="/groups">Quản lý nhóm của tôi →</a></div><div class="panel" th:if="${topic.canEdit}"><h3>Bản đề xuất của bạn</h3><a class="button subtle full" th:href="@{/forms/topics(id=${topic.id})}">Chỉnh sửa nội dung</a><form th:action="@{/topics/{id}/submit(id=${topic.id})}" method="post"><button class="button primary full">Gửi Trưởng khoa duyệt</button></form><form th:action="@{/topics/{id}/delete(id=${topic.id})}" method="post" data-confirm="Xóa bản nháp đề tài này?"><button class="button danger full">Xóa bản nháp</button></form></div><div class="panel" th:if="${topic.faculty}"><h3>Phê duyệt & phân công</h3><form th:action="@{/topics/{id}/supervisors(id=${topic.id})}" method="post"><label>Chọn 1–2 GVHD<select multiple name="supervisorIds" required><option th:each="l : ${lecturers}" th:value="${l.id}" th:text="${l.label}"></option></select></label><button class="button subtle full">Lưu phân công</button></form><form th:if="${topic.status == 'SUBMITTED'}" th:action="@{/topics/{id}/approve(id=${topic.id})}" method="post"><button class="button primary full">Phê duyệt đề tài</button></form><form th:if="${topic.status == 'APPROVED'}" th:action="@{/topics/{id}/publish(id=${topic.id})}" method="post"><button class="button primary full">Công bố cho sinh viên</button></form><form th:if="${topic.status == 'SUBMITTED'}" th:action="@{/topics/{id}/return(id=${topic.id})}" method="post"><label>Lý do trả lại / từ chối<textarea name="note" required></textarea></label><div class="actions"><button class="button subtle">Trả lại sửa</button><button class="button danger" th:formaction="@{/topics/{id}/reject(id=${topic.id})}">Từ chối</button></div></form></div><div class="panel" th:if="${topic.canReview}"><h3>Ý kiến Trưởng bộ môn</h3><form th:action="@{/topics/{id}/review(id=${topic.id})}" method="post"><textarea name="note" required aria-label="Ý kiến rà soát"></textarea><button class="button primary">Ghi nhận ý kiến</button></form></div></aside></div></main></html>
+<!DOCTYPE html>
+<html
+  lang="vi"
+  xmlns:th="http://www.thymeleaf.org"
+  th:replace="~{layout :: page(~{::main})}"
+>
+  <main>
+    <a
+      class="backlink"
+      href="/topics"
+      >← Danh sách đề tài</a
+    >
+    <div class="page-heading">
+      <div>
+        <span
+          class="eyebrow"
+          th:text="${topic.department}"
+        ></span>
+        <h1 th:text="${topic.title}"></h1>
+        <p
+          class="muted"
+          th:text="${topic.cycle}"
+        ></p>
+      </div>
+      <span
+        class="badge"
+        th:text="${topic.status}"
+      ></span>
+    </div>
+    <div class="detail-columns">
+      <section class="panel">
+        <h2>Nội dung đề tài</h2>
+        <div
+          class="prose"
+          th:text="${topic.description}"
+        ></div>
+        <div class="divider"></div>
+        <dl>
+          <dt>Giảng viên hướng dẫn</dt>
+          <dd th:text="${topic.supervisors}"></dd>
+          <dt>Người đề xuất</dt>
+          <dd th:text="${topic.author}"></dd>
+          <dt>Số nhóm đăng ký</dt>
+          <dd th:text="${topic.occupied+' / '+topic.maxGroups}"></dd>
+        </dl>
+        <div
+          class="flash info"
+          th:if="${topic.note != null and !topic.note.isBlank()}"
+          th:text="${topic.note}"
+        ></div>
+      </section>
+      <aside>
+        <div
+          class="panel"
+          th:if="${me.has('STUDENT') and topic.status == 'PUBLISHED'}"
+        >
+          <h3>Đăng ký thực hiện</h3>
+          <p class="muted">
+            Nhóm trưởng đăng ký thay nhóm. Cần đủ thành viên và trong thời gian mở đăng ký.
+          </p>
+          <form
+            th:action="@{/registrations}"
+            method="post"
+          >
+            <input
+              type="hidden"
+              name="topicId"
+              th:value="${topic.id}"
+            /><label
+              >Chọn nhóm của bạn<select
+                name="groupId"
+                required
+              >
+                <option value="">Chọn nhóm</option>
+                <option
+                  th:each="g : ${groups}"
+                  th:value="${g.id}"
+                  th:text="${g.name}"
+                  th:if="${g.cycleId == topic.cycleId}"
+                ></option></select></label
+            ><button class="button primary full">Đăng ký đề tài ↗</button>
+          </form>
+          <a
+            class="text-link"
+            href="/groups"
+            >Quản lý nhóm của tôi →</a
+          >
+        </div>
+        <div
+          class="panel"
+          th:if="${topic.canEdit}"
+        >
+          <h3>Bản đề xuất của bạn</h3>
+          <a
+            class="button subtle full"
+            th:href="@{/forms/topics(id=${topic.id})}"
+            >Chỉnh sửa nội dung</a
+          >
+          <form
+            th:action="@{/topics/{id}/submit(id=${topic.id})}"
+            method="post"
+          >
+            <button class="button primary full">Gửi Trưởng khoa duyệt</button>
+          </form>
+          <form
+            th:action="@{/topics/{id}/delete(id=${topic.id})}"
+            method="post"
+            data-confirm="Xóa bản nháp đề tài này?"
+          >
+            <button class="button danger full">Xóa bản nháp</button>
+          </form>
+        </div>
+        <div
+          class="panel"
+          th:if="${topic.faculty}"
+        >
+          <h3>Phê duyệt & phân công</h3>
+          <form
+            th:action="@{/topics/{id}/supervisors(id=${topic.id})}"
+            method="post"
+          >
+            <label
+              >Chọn 1–2 GVHD<select
+                multiple
+                name="supervisorIds"
+                required
+              >
+                <option
+                  th:each="l : ${lecturers}"
+                  th:value="${l.id}"
+                  th:text="${l.label}"
+                ></option></select></label
+            ><button class="button subtle full">Lưu phân công</button>
+          </form>
+          <form
+            th:if="${topic.status == 'SUBMITTED'}"
+            th:action="@{/topics/{id}/approve(id=${topic.id})}"
+            method="post"
+          >
+            <button class="button primary full">Phê duyệt đề tài</button>
+          </form>
+          <form
+            th:if="${topic.status == 'APPROVED'}"
+            th:action="@{/topics/{id}/publish(id=${topic.id})}"
+            method="post"
+          >
+            <button class="button primary full">Công bố cho sinh viên</button>
+          </form>
+          <form
+            th:if="${topic.status == 'SUBMITTED'}"
+            th:action="@{/topics/{id}/return(id=${topic.id})}"
+            method="post"
+          >
+            <label
+              >Lý do trả lại / từ chối<textarea
+                name="note"
+                required
+              ></textarea>
+            </label>
+            <div class="actions">
+              <button class="button subtle">Trả lại sửa</button
+              ><button
+                class="button danger"
+                th:formaction="@{/topics/{id}/reject(id=${topic.id})}"
+              >
+                Từ chối
+              </button>
+            </div>
+          </form>
+        </div>
+        <div
+          class="panel"
+          th:if="${topic.canReview}"
+        >
+          <h3>Ý kiến Trưởng bộ môn</h3>
+          <form
+            th:action="@{/topics/{id}/review(id=${topic.id})}"
+            method="post"
+          >
+            <textarea
+              name="note"
+              required
+              aria-label="Ý kiến rà soát"
+            ></textarea
+            ><button class="button primary">Ghi nhận ý kiến</button>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </main>
+</html>

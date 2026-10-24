@@ -1,1 +1,157 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" lang="vi" th:replace="~{layout :: page(~{::main})}"><main><a class="backlink" href="/groups">← Nhóm thực hiện</a><div class="page-heading"><div><span class="eyebrow" th:text="${group.cycle}"></span><h1 th:text="${group.name}"></h1><p class="muted" th:text="${'Quy định '+group.min+'–'+group.max+' thành viên · Chỉ nhóm trưởng nộp báo cáo'}"></p></div><span class="badge" th:text="${group.status}"></span></div><div class="detail-columns"><section><div class="panel"><h2>Thành viên & lời mời</h2><div class="person-row" th:each="mem : ${group.members}"><span class="avatar" th:text="${#strings.substring(mem.name,0,1)}"></span><div><b th:text="${mem.name}"></b><small th:text="${mem.code}"></small></div><span class="badge" th:text="${mem.leader ? 'Nhóm trưởng' : mem.status}"></span><form th:if="${group.leader and group.editable and mem.status == 'ACTIVE' and !mem.leader}" th:action="@{/groups/{id}/leader(id=${group.id})}" method="post" data-confirm="Chuyển quyền trưởng nhóm cho thành viên này?"><input type="hidden" name="studentId" th:value="${mem.id}"><button class="button subtle small">Chuyển trưởng nhóm</button></form></div></div><div class="panel"><h2>Hồ sơ đăng ký</h2><a class="simple-row" th:each="r : ${registrations}" th:href="@{/registrations/{id}(id=${r.id})}"><span th:text="${r.topic}"></span><span class="badge" th:text="${r.status}"></span></a><p class="muted" th:if="${registrations.isEmpty()}">Nhóm chưa đăng ký đề tài.</p><a class="text-link" th:href="@{/topics(cycleId=${group.cycleId})}">Khám phá đề tài của đợt →</a></div></section><aside><div class="panel" th:if="${group.invited and group.editable}"><h3>Bạn được mời tham gia</h3><p class="muted">Chỉ chấp nhận nếu bạn chưa ở nhóm đang thực hiện khác.</p><form th:action="@{/groups/{id}/respond(id=${group.id})}" method="post"><div class="actions"><button name="accept" value="true" class="button primary">Chấp nhận</button><button name="accept" value="false" class="button subtle">Từ chối</button></div></form></div><div class="panel" th:if="${group.leader and group.editable}"><h3>Mời cộng sự</h3><form th:action="@{/groups/{id}/invite(id=${group.id})}" method="post"><label>Mã số sinh viên<input name="studentCode" placeholder="Ví dụ: SV004" required></label><button class="button primary full">Gửi lời mời →</button></form><p class="muted">Thành viên cần đăng nhập và chấp nhận lời mời trước khi được tính vào nhóm.</p></div><div class="panel" th:if="${group.member and !group.leader and group.editable}"><h3>Rời nhóm</h3><form th:action="@{/groups/{id}/leave(id=${group.id})}" method="post" data-confirm="Bạn muốn rời nhóm này?"><button class="button danger">Rời nhóm</button></form></div><div class="note"><b>Đúng người, đúng quyền.</b><p>Danh sách thành viên được khóa khi gửi đăng ký. Nhóm trưởng là người đại diện đăng ký và nộp báo cáo.</p></div></aside></div></main></html>
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  lang="vi"
+  th:replace="~{layout :: page(~{::main})}"
+>
+  <main>
+    <a
+      class="backlink"
+      href="/groups"
+      >← Nhóm thực hiện</a
+    >
+    <div class="page-heading">
+      <div>
+        <span
+          class="eyebrow"
+          th:text="${group.cycle}"
+        ></span>
+        <h1 th:text="${group.name}"></h1>
+        <p
+          class="muted"
+          th:text="${'Quy định '+group.min+'–'+group.max+' thành viên · Chỉ nhóm trưởng nộp báo cáo'}"
+        ></p>
+      </div>
+      <span
+        class="badge"
+        th:text="${group.status}"
+      ></span>
+    </div>
+    <div class="detail-columns">
+      <section>
+        <div class="panel">
+          <h2>Thành viên & lời mời</h2>
+          <div
+            class="person-row"
+            th:each="mem : ${group.members}"
+          >
+            <span
+              class="avatar"
+              th:text="${#strings.substring(mem.name,0,1)}"
+            ></span>
+            <div><b th:text="${mem.name}"></b><small th:text="${mem.code}"></small></div>
+            <span
+              class="badge"
+              th:text="${mem.leader ? 'Nhóm trưởng' : mem.status}"
+            ></span>
+            <form
+              th:if="${group.leader and group.editable and mem.status == 'ACTIVE' and !mem.leader}"
+              th:action="@{/groups/{id}/leader(id=${group.id})}"
+              method="post"
+              data-confirm="Chuyển quyền trưởng nhóm cho thành viên này?"
+            >
+              <input
+                type="hidden"
+                name="studentId"
+                th:value="${mem.id}"
+              /><button class="button subtle small">Chuyển trưởng nhóm</button>
+            </form>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Hồ sơ đăng ký</h2>
+          <a
+            class="simple-row"
+            th:each="r : ${registrations}"
+            th:href="@{/registrations/{id}(id=${r.id})}"
+            ><span th:text="${r.topic}"></span
+            ><span
+              class="badge"
+              th:text="${r.status}"
+            ></span
+          ></a>
+          <p
+            class="muted"
+            th:if="${registrations.isEmpty()}"
+          >
+            Nhóm chưa đăng ký đề tài.
+          </p>
+          <a
+            class="text-link"
+            th:href="@{/topics(cycleId=${group.cycleId})}"
+            >Khám phá đề tài của đợt →</a
+          >
+        </div>
+      </section>
+      <aside>
+        <div
+          class="panel"
+          th:if="${group.invited and group.editable}"
+        >
+          <h3>Bạn được mời tham gia</h3>
+          <p class="muted">Chỉ chấp nhận nếu bạn chưa ở nhóm đang thực hiện khác.</p>
+          <form
+            th:action="@{/groups/{id}/respond(id=${group.id})}"
+            method="post"
+          >
+            <div class="actions">
+              <button
+                name="accept"
+                value="true"
+                class="button primary"
+              >
+                Chấp nhận</button
+              ><button
+                name="accept"
+                value="false"
+                class="button subtle"
+              >
+                Từ chối
+              </button>
+            </div>
+          </form>
+        </div>
+        <div
+          class="panel"
+          th:if="${group.leader and group.editable}"
+        >
+          <h3>Mời cộng sự</h3>
+          <form
+            th:action="@{/groups/{id}/invite(id=${group.id})}"
+            method="post"
+          >
+            <label
+              >Mã số sinh viên<input
+                name="studentCode"
+                placeholder="Ví dụ: SV004"
+                required /></label
+            ><button class="button primary full">Gửi lời mời →</button>
+          </form>
+          <p class="muted">
+            Thành viên cần đăng nhập và chấp nhận lời mời trước khi được tính vào nhóm.
+          </p>
+        </div>
+        <div
+          class="panel"
+          th:if="${group.member and !group.leader and group.editable}"
+        >
+          <h3>Rời nhóm</h3>
+          <form
+            th:action="@{/groups/{id}/leave(id=${group.id})}"
+            method="post"
+            data-confirm="Bạn muốn rời nhóm này?"
+          >
+            <button class="button danger">Rời nhóm</button>
+          </form>
+        </div>
+        <div class="note">
+          <b>Đúng người, đúng quyền.</b>
+          <p>
+            Danh sách thành viên được khóa khi gửi đăng ký. Nhóm trưởng là người đại diện đăng ký và
+            nộp báo cáo.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </main>
+</html>

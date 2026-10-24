@@ -1,1 +1,119 @@
-<!DOCTYPE html><html lang="vi" xmlns:th="http://www.thymeleaf.org"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Đăng nhập · Đề Tài Hub</title><link rel="stylesheet" href="/css/app.css"><script defer src="/js/app.js"></script></head><body class="login-body"><section class="login-story"><a class="brand" href="/login"><span class="brand-symbol">đ.</span><span>đề tài<span class="brand-sub">FACULTY WORKSPACE</span></span></a><div class="story-copy"><span class="eyebrow light">TỪ Ý TƯỞNG ĐẾN THÀNH QUẢ</span><h1>Mỗi đề tài,<br>một hành trình<br><em>khám phá.</em></h1><p>Không gian kết nối sinh viên, giảng viên và những ý tưởng mới. Cùng quản lý hành trình nghiên cứu trong một nơi.</p><div class="story-line"></div><div class="story-stats"><span><b>01</b> Đề xuất ý tưởng</span><span><b>02</b> Cộng tác thực hiện</span><span><b>03</b> Ghi nhận kết quả</span></div></div><div class="story-footer">KHOA CÔNG NGHỆ THÔNG TIN <span>✳</span></div></section><section class="login-panel"><div class="login-card"><span class="eyebrow">CHÀO MỪNG TRỞ LẠI</span><h2>Đăng nhập<br>không gian của bạn.</h2><p class="muted">Sử dụng tài khoản được cấp bởi quản trị hệ thống.</p><div class="flash danger" th:if="${param.error}">Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa.</div><div class="flash success" th:if="${param.logout}">Bạn đã đăng xuất an toàn.</div><form th:action="@{/login}" method="post"><label>Email đăng nhập<input type="email" name="username" id="login-email" autocomplete="username" placeholder="ban@khoa.edu.vn" required autofocus></label><label>Mật khẩu<input type="password" name="password" id="login-password" autocomplete="current-password" placeholder="Nhập mật khẩu" required></label><button class="button primary full" type="submit">Vào không gian làm việc <span>↗</span></button></form><div class="demo-access" th:if="${demoSeed}"><span class="eyebrow">TRẢI NGHIỆM LOCAL</span><p>Chọn vai trò để điền tài khoản demo.</p><div class="demo-buttons"><button type="button" data-demo="khoa@demo.local">Trưởng khoa</button><button type="button" data-demo="gv1@demo.local">Giảng viên</button><button type="button" data-demo="sv1@demo.local">Sinh viên</button><button type="button" data-demo="admin@demo.local">Admin</button><button type="button" data-demo="tbm@demo.local">Trưởng bộ môn</button></div><small>Mật khẩu demo: <code>Demo@2026!</code></small></div><p class="login-help">Cần tài khoản? Liên hệ quản trị Khoa CNTT.</p></div></section></body></html>
+<!DOCTYPE html>
+<html
+  lang="vi"
+  xmlns:th="http://www.thymeleaf.org"
+>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1"
+    />
+    <title>Đăng nhập · WEB ĐĂNG KÝ ĐỀ TÀI</title>
+    <link
+      rel="stylesheet"
+      href="/css/app.css"
+    />
+    <script
+      defer
+      src="/js/app.js"
+    ></script>
+  </head>
+  <body class="login-body">
+    <main class="login-panel">
+      <div class="login-card">
+        <a
+          th:replace="~{fragments :: brand(@{/login}, 'login-brand')}"
+        ></a>
+        <header class="login-heading">
+          <span class="eyebrow">CHÀO MỪNG TRỞ LẠI</span>
+          <h1>Đăng nhập</h1>
+          <p class="muted">Sử dụng tài khoản được cấp bởi quản trị hệ thống.</p>
+        </header>
+        <div
+          class="flash danger"
+          th:if="${param.error}"
+        >
+          Email hoặc mật khẩu không đúng, hoặc tài khoản đã bị khóa.
+        </div>
+        <div
+          class="flash success"
+          th:if="${param.logout}"
+        >
+          Bạn đã đăng xuất an toàn.
+        </div>
+        <form
+          th:action="@{/login}"
+          method="post"
+        >
+          <label for="login-email">Email đăng nhập</label>
+          <input
+            type="email"
+            name="username"
+            id="login-email"
+            autocomplete="username"
+            placeholder="ban@khoa.edu.vn"
+            required
+            autofocus
+          />
+          <label for="login-password">Mật khẩu</label>
+          <input
+            type="password"
+            name="password"
+            id="login-password"
+            autocomplete="current-password"
+            placeholder="Nhập mật khẩu"
+            required
+          />
+          <button
+            class="button primary full"
+            type="submit"
+          >
+            Vào không gian làm việc <span>↗</span>
+          </button>
+        </form>
+        <div
+          class="demo-access"
+          th:if="${demoSeed}"
+        >
+          <span class="eyebrow">TRẢI NGHIỆM LOCAL</span>
+          <p>Chọn vai trò để điền tài khoản demo.</p>
+          <div class="demo-buttons">
+            <button
+              type="button"
+              data-demo="khoa@demo.local"
+            >
+              Trưởng khoa
+            </button>
+            <button
+              type="button"
+              data-demo="gv1@demo.local"
+            >
+              Giảng viên
+            </button>
+            <button
+              type="button"
+              data-demo="sv1@demo.local"
+            >
+              Sinh viên
+            </button>
+            <button
+              type="button"
+              data-demo="admin@demo.local"
+            >
+              Admin
+            </button>
+            <button
+              type="button"
+              data-demo="tbm@demo.local"
+            >
+              Trưởng bộ môn
+            </button>
+          </div>
+          <small>Mật khẩu demo: <code>Demo@2026!</code></small>
+        </div>
+        <p class="login-help">Cần tài khoản? Liên hệ quản trị Khoa CNTT.</p>
+      </div>
+    </main>
+  </body>
+</html>

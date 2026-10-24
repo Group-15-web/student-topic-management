@@ -1,1 +1,79 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" lang="vi" th:replace="~{layout :: page(~{::main})}"><main><div class="page-heading"><div><span class="eyebrow">THÔNG BÁO KẾT QUẢ</span><h1>Email công bố</h1><p class="muted">Theo dõi từng người nhận và thử lại những email chưa gửi được.</p></div></div><div class="flash info" th:if="${mailMode == 'preview'}">Chế độ local: email được lưu thành file .eml để xem trước, chưa gửi ra Internet. Đổi MAIL_MODE=smtp và cấu hình SMTP để gửi thật.</div><div class="table-wrap"><table><thead><tr><th>Người nhận / nội dung</th><th>Trạng thái</th><th>Số lần thử</th><th>Thao tác</th></tr></thead><tbody><tr th:each="m : ${mails}"><td><b th:text="${m.recipient}"></b><small th:text="${m.subject}"></small><small class="field-error" th:if="${m.error}" th:text="${m.error}"></small></td><td><span class="badge" th:text="${m.status}"></span></td><td th:text="${m.attempts}"></td><td><div class="actions"><a class="button subtle small" th:if="${m.canPreview}" th:href="@{/mail/{id}/preview(id=${m.id})}">Tải .eml</a><form th:if="${m.status == 'FAILED' or m.status == 'PREVIEW'}" th:action="@{/mail/{id}/retry(id=${m.id})}" method="post"><button class="button subtle small">Thử lại</button></form></div></td></tr><tr th:if="${mails.isEmpty()}"><td colspan="4" class="empty-cell">Email được tạo tự động sau khi công bố kết quả.</td></tr></tbody></table></div></main></html>
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  lang="vi"
+  th:replace="~{layout :: page(~{::main})}"
+>
+  <main>
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">THÔNG BÁO KẾT QUẢ</span>
+        <h1>Email công bố</h1>
+        <p class="muted">Theo dõi từng người nhận và thử lại những email chưa gửi được.</p>
+      </div>
+    </div>
+    <div
+      class="flash info"
+      th:if="${mailMode == 'preview'}"
+    >
+      Chế độ local: email được lưu thành file .eml để xem trước, chưa gửi ra Internet. Đổi
+      MAIL_MODE=smtp và cấu hình SMTP để gửi thật.
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Người nhận / nội dung</th>
+            <th>Trạng thái</th>
+            <th>Số lần thử</th>
+            <th>Thao tác</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="m : ${mails}">
+            <td>
+              <b th:text="${m.recipient}"></b><small th:text="${m.subject}"></small
+              ><small
+                class="field-error"
+                th:if="${m.error}"
+                th:text="${m.error}"
+              ></small>
+            </td>
+            <td>
+              <span
+                class="badge"
+                th:text="${m.status}"
+              ></span>
+            </td>
+            <td th:text="${m.attempts}"></td>
+            <td>
+              <div class="actions">
+                <a
+                  class="button subtle small"
+                  th:if="${m.canPreview}"
+                  th:href="@{/mail/{id}/preview(id=${m.id})}"
+                  >Tải .eml</a
+                >
+                <form
+                  th:if="${m.status == 'FAILED' or m.status == 'PREVIEW'}"
+                  th:action="@{/mail/{id}/retry(id=${m.id})}"
+                  method="post"
+                >
+                  <button class="button subtle small">Thử lại</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          <tr th:if="${mails.isEmpty()}">
+            <td
+              colspan="4"
+              class="empty-cell"
+            >
+              Email được tạo tự động sau khi công bố kết quả.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</html>

@@ -1,1 +1,45 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" lang="vi" th:replace="~{layout :: page(~{::main})}"><main><div class="page-heading"><div><span class="eyebrow">MINH BẠCH & TRUY VẾT</span><h1>Nhật ký hệ thống</h1><p class="muted">300 thao tác gần nhất. Mật khẩu và thông tin bí mật không được ghi vào nhật ký.</p></div></div><div class="table-wrap"><table><thead><tr><th>Thời gian (UTC)</th><th>Người thực hiện</th><th>Thao tác</th><th>Đối tượng</th><th>Ghi chú</th></tr></thead><tbody><tr th:each="a : ${audits}"><td th:text="${a.time}"></td><td th:text="${a.actor}"></td><td><span class="code" th:text="${a.action}"></span></td><td th:text="${a.type+' #'+a.objectId}"></td><td th:text="${a.details}"></td></tr></tbody></table></div></main></html>
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  lang="vi"
+  th:replace="~{layout :: page(~{::main})}"
+>
+  <main>
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">MINH BẠCH & TRUY VẾT</span>
+        <h1>Nhật ký hệ thống</h1>
+        <p class="muted">
+          300 thao tác gần nhất. Mật khẩu và thông tin bí mật không được ghi vào nhật ký.
+        </p>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Thời gian (UTC)</th>
+            <th>Người thực hiện</th>
+            <th>Thao tác</th>
+            <th>Đối tượng</th>
+            <th>Ghi chú</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="a : ${audits}">
+            <td th:text="${a.time}"></td>
+            <td th:text="${a.actor}"></td>
+            <td>
+              <span
+                class="code"
+                th:text="${a.action}"
+              ></span>
+            </td>
+            <td th:text="${a.type+' #'+a.objectId}"></td>
+            <td th:text="${a.details}"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</html>

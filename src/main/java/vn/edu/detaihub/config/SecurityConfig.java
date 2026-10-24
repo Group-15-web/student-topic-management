@@ -49,7 +49,7 @@ public class SecurityConfig {
   SecurityFilterChain chain(HttpSecurity http) throws Exception {
     http.authorizeHttpRequests(
             a ->
-                a.requestMatchers("/login", "/css/**", "/js/**", "/error", "/favicon.ico")
+                a.requestMatchers("/login", "/css/**", "/js/**", "/images/**", "/error", "/favicon.ico")
                     .permitAll()
                     .anyRequest()
                     .authenticated())

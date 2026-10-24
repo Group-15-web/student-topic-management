@@ -1,1 +1,117 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" lang="vi" th:replace="~{layout :: page(~{::main})}"><main><div class="page-heading"><div><span class="eyebrow">GHI NHẬN THÀNH QUẢ</span><h1>Kết quả đề tài</h1><p class="muted">Kết quả được hiển thị theo phạm vi tham gia và trạng thái công bố.</p></div></div><form class="filterbar" method="get"><select name="cycleId" aria-label="Lọc đợt của tôi"><option value="">Tất cả đợt của bạn</option><option th:each="c : ${resultCycles}" th:value="${c.id}" th:text="${c.label}" th:selected="${c.id == cycleId}"></option></select><button class="button primary">Tra cứu</button></form><section class="panel" th:if="${me.has('FACULTY_MANAGER')}"><h2>Hồ sơ chờ công bố</h2><p class="muted">Chỉ chọn hồ sơ đã đủ phiếu và xác nhận. Nếu dữ liệu thay đổi, hệ thống kiểm tra lại toàn bộ trước khi công bố.</p><form th:action="@{/results/publish}" method="post" data-confirm="Công bố các hồ sơ đã chọn và tạo email cho từng sinh viên?"><div class="simple-row" th:each="r : ${readiness}"><input type="checkbox" name="registrationIds" th:value="${r.id}" th:disabled="${!r.ready}" th:aria-label="${r.group}"><div><a th:href="@{/registrations/{id}(id=${r.id})}" th:text="${r.group+' · '+r.topic}"></a><p class="muted" th:text="${r.cycle+' — '+r.reason}"></p></div><b th:if="${r.ready}" th:text="${r.score+' / 10'}"></b></div><p class="muted" th:if="${readiness.isEmpty()}">Không còn hồ sơ đang chờ công bố.</p><button th:if="${!readiness.isEmpty()}" class="button primary">Công bố hồ sơ đã chọn →</button></form></section><div class="result-card panel" th:each="r : ${results}"><div><span class="eyebrow" th:text="${r.cycle}"></span><h2 th:text="${r.topic}"></h2><p class="muted" th:text="${r.group+' · Công bố '+r.publishedAt}"></p><a th:href="@{/registrations/{id}(id=${r.registrationId})}">Xem hồ sơ đề tài →</a></div><div class="score-circle"><b th:text="${r.score}"></b><small>/ 10</small></div><span class="badge" th:text="${r.status}"></span></div><div class="empty" th:if="${results.isEmpty()}"><span>◎</span><h3>Chưa có kết quả được công bố</h3><p>Khi Khoa công bố, kết quả sẽ xuất hiện tại đây và email được gửi đến từng thành viên.</p></div></main></html>
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  lang="vi"
+  th:replace="~{layout :: page(~{::main})}"
+>
+  <main>
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">GHI NHẬN THÀNH QUẢ</span>
+        <h1>Kết quả đề tài</h1>
+        <p class="muted">Kết quả được hiển thị theo phạm vi tham gia và trạng thái công bố.</p>
+      </div>
+    </div>
+    <form
+      class="filterbar"
+      method="get"
+    >
+      <select
+        name="cycleId"
+        aria-label="Lọc đợt của tôi"
+      >
+        <option value="">Tất cả đợt của bạn</option>
+        <option
+          th:each="c : ${resultCycles}"
+          th:value="${c.id}"
+          th:text="${c.label}"
+          th:selected="${c.id == cycleId}"
+        ></option></select
+      ><button class="button primary">Tra cứu</button>
+    </form>
+    <section
+      class="panel"
+      th:if="${me.has('FACULTY_MANAGER')}"
+    >
+      <h2>Hồ sơ chờ công bố</h2>
+      <p class="muted">
+        Chỉ chọn hồ sơ đã đủ phiếu và xác nhận. Nếu dữ liệu thay đổi, hệ thống kiểm tra lại toàn bộ
+        trước khi công bố.
+      </p>
+      <form
+        th:action="@{/results/publish}"
+        method="post"
+        data-confirm="Công bố các hồ sơ đã chọn và tạo email cho từng sinh viên?"
+      >
+        <div
+          class="simple-row"
+          th:each="r : ${readiness}"
+        >
+          <input
+            type="checkbox"
+            name="registrationIds"
+            th:value="${r.id}"
+            th:disabled="${!r.ready}"
+            th:aria-label="${r.group}"
+          />
+          <div>
+            <a
+              th:href="@{/registrations/{id}(id=${r.id})}"
+              th:text="${r.group+' · '+r.topic}"
+            ></a>
+            <p
+              class="muted"
+              th:text="${r.cycle+' — '+r.reason}"
+            ></p>
+          </div>
+          <b
+            th:if="${r.ready}"
+            th:text="${r.score+' / 10'}"
+          ></b>
+        </div>
+        <p
+          class="muted"
+          th:if="${readiness.isEmpty()}"
+        >
+          Không còn hồ sơ đang chờ công bố.
+        </p>
+        <button
+          th:if="${!readiness.isEmpty()}"
+          class="button primary"
+        >
+          Công bố hồ sơ đã chọn →
+        </button>
+      </form>
+    </section>
+    <div
+      class="result-card panel"
+      th:each="r : ${results}"
+    >
+      <div>
+        <span
+          class="eyebrow"
+          th:text="${r.cycle}"
+        ></span>
+        <h2 th:text="${r.topic}"></h2>
+        <p
+          class="muted"
+          th:text="${r.group+' · Công bố '+r.publishedAt}"
+        ></p>
+        <a th:href="@{/registrations/{id}(id=${r.registrationId})}">Xem hồ sơ đề tài →</a>
+      </div>
+      <div class="score-circle"><b th:text="${r.score}"></b><small>/ 10</small></div>
+      <span
+        class="badge"
+        th:text="${r.status}"
+      ></span>
+    </div>
+    <div
+      class="empty"
+      th:if="${results.isEmpty()}"
+    >
+      <span>◎</span>
+      <h3>Chưa có kết quả được công bố</h3>
+      <p>Khi Khoa công bố, kết quả sẽ xuất hiện tại đây và email được gửi đến từng thành viên.</p>
+    </div>
+  </main>
+</html>

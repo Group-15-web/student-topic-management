@@ -1,7 +1,287 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" lang="vi" th:replace="~{layout :: page(~{::main})}"><main><a class="backlink" href="/registrations">← Danh sách hồ sơ</a><div class="page-heading"><div><span class="eyebrow" th:text="${registration.cycle}"></span><h1 th:text="${registration.group}"></h1><p class="muted" th:text="${registration.topic}"></p></div><span class="badge" th:text="${registration.status}"></span></div><div class="detail-columns"><section><div class="panel"><div class="section-heading"><h2>Thông tin thực hiện</h2><a th:href="@{/groups/{id}(id=${registration.groupId})}">Thành viên →</a></div><dl><dt>Đề tài</dt><dd><a th:href="@{/topics/{id}(id=${registration.topicId})}" th:text="${registration.topic}"></a></dd><dt>Hội đồng</dt><dd th:text="${registration.council}"></dd><dt>Lịch báo cáo</dt><dd th:text="${registration.schedule}"></dd><dt>Xác nhận hội đồng</dt><dd th:text="${registration.confirmed ? 'Chủ tịch đã xác nhận' : 'Chưa xác nhận'}"></dd></dl><div class="flash info" th:if="${registration.note != null and !registration.note.isBlank()}" th:text="${registration.note}"></div><div class="result-highlight" th:if="${registration.result != null}"><span>ĐIỂM ĐÃ CÔNG BỐ</span><strong th:text="${registration.result}"></strong><small>/ 10 · Trung bình cộng các phiếu hợp lệ</small></div></div>
-<div class="panel"><h2>Báo cáo đề tài</h2><a class="file-row" th:each="s : ${submissions}" th:href="@{/submissions/{id}/download(id=${s.id})}"><span class="file-icon">↓</span><div><b th:text="${s.name}"></b><small th:text="${'Phiên bản '+s.version+' · '+s.time+' · '+s.size+' bytes'}"></small></div><span>Tải xuống ↗</span></a><p th:if="${submissions.isEmpty()}" class="muted">Nhóm chưa nộp báo cáo.</p><form class="upload-form" th:if="${registration.leader and registration.status == 'APPROVED'}" th:action="@{/registrations/{id}/submissions(id=${registration.id})}" method="post" enctype="multipart/form-data"><label>Nộp phiên bản mới<input name="file" type="file" accept=".pdf,.docx,.zip" required></label><small class="muted">PDF, DOCX hoặc ZIP · Tối đa 20 MB · Chỉ thay đổi khi chưa có điểm.</small><button class="button primary">Tải báo cáo lên ↑</button></form></div>
-<div class="panel" th:if="${!evaluations.isEmpty()}"><h2>Phiếu đánh giá trong quyền truy cập</h2><div class="grade-row" th:each="e : ${evaluations}"><div><b th:text="${e.evaluator}"></b><small th:text="${e.type+' · '+e.status}"></small><p class="muted" th:text="${e.comment}"></p></div><strong th:text="${e.score}"></strong><a class="button subtle small" th:if="${e.mine}" th:href="@{/evaluations/{id}(id=${e.id})}">Mở phiếu</a></div></div></section>
-<aside><div class="panel" th:if="${!progress.isEmpty()}"><h3>Tiến độ nộp phiếu hội đồng</h3><div class="simple-row" th:each="p : ${progress}"><span th:text="${p.evaluator+' · '+p.role}"></span><span class="badge" th:text="${p.status}"></span></div><small class="muted">Thư ký theo dõi tình trạng nộp; không xem hoặc sửa điểm của người khác.</small></div><div class="panel" th:if="${registration.status == 'PENDING' and registration.faculty}"><h3>Xử lý đăng ký</h3><form th:action="@{/registrations/{id}/approve(id=${registration.id})}" method="post"><button class="button primary full">Chấp thuận nhóm</button></form><form th:action="@{/registrations/{id}/reject(id=${registration.id})}" method="post"><label>Lý do từ chối<textarea name="note" required></textarea></label><button class="button danger full">Từ chối đăng ký</button></form></div><form class="panel" th:if="${registration.status == 'PENDING' and registration.leader}" th:action="@{/registrations/{id}/withdraw(id=${registration.id})}" method="post" data-confirm="Rút đăng ký đề tài này?"><h3>Đang chờ phê duyệt</h3><button class="button subtle full">Rút đăng ký</button></form>
-<div class="panel" th:if="${registration.faculty and registration.status == 'APPROVED'}"><h3>Phân công đánh giá</h3><form th:action="@{/registrations/{id}/reviewers(id=${registration.id})}" method="post"><label>Giảng viên phản biện<select name="lecturerIds" multiple><option th:each="l : ${lecturers}" th:value="${l.id}" th:text="${l.label}"></option></select></label><small class="muted">Chọn đúng số lượng theo cấu hình đợt. Không chọn GVHD hoặc thành viên HĐ của đề tài.</small><button class="button subtle full">Lưu GVPB</button></form><form th:if="${registration.councilId == null}" th:action="@{/registrations/{id}/council(id=${registration.id})}" method="post"><label>Hội đồng<select name="councilId" required><option value="">Chọn hội đồng</option><option th:each="c : ${councils}" th:value="${c.id}" th:text="${c.name}"></option></select></label><button class="button subtle full">Giao hội đồng</button></form><a href="/forms/councils" class="text-link">Thành lập hội đồng mới →</a></div>
-<div class="panel" th:if="${registration.president}"><h3>Xác nhận hội đồng</h3><p class="muted">Chỉ xác nhận khi tất cả thành viên đã gửi phiếu hợp lệ.</p><form th:action="@{/registrations/{id}/confirm(id=${registration.id})}" method="post"><button class="button primary full">Xác nhận tổng hợp</button></form></div>
-<div class="panel" th:if="${registration.faculty and registration.status == 'APPROVED'}"><h3>Công bố kết quả</h3><p class="muted">Hệ thống kiểm tra đủ phiếu và tính trung bình cộng. Email được tạo riêng cho từng sinh viên.</p><form th:action="@{/registrations/{id}/publish(id=${registration.id})}" method="post" data-confirm="Công bố kết quả và tạo email cho từng sinh viên?"><button class="button primary full">Công bố kết quả ↗</button></form><details><summary>Điều chỉnh kết quả / mở lại phiếu</summary><form th:action="@{/registrations/{id}/reopen(id=${registration.id})}" method="post"><label>Lý do điều chỉnh<textarea name="reason" minlength="10" required></textarea></label><button class="button danger full">Thu hồi & mở lại phiếu</button></form></details><form th:if="${registration.result != null}" th:action="@{/registrations/{id}/complete(id=${registration.id})}" method="post" data-confirm="Hoàn tất nhóm và giải phóng quyền tham gia nhóm mới? Không thể mở lại điểm từ giao diện sau bước này."><button class="button subtle full">Lưu trữ nhóm đã hoàn tất</button></form></div></aside></div></main></html>
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  lang="vi"
+  th:replace="~{layout :: page(~{::main})}"
+>
+  <main>
+    <a
+      class="backlink"
+      href="/registrations"
+      >← Danh sách hồ sơ</a
+    >
+    <div class="page-heading">
+      <div>
+        <span
+          class="eyebrow"
+          th:text="${registration.cycle}"
+        ></span>
+        <h1 th:text="${registration.group}"></h1>
+        <p
+          class="muted"
+          th:text="${registration.topic}"
+        ></p>
+      </div>
+      <span
+        class="badge"
+        th:text="${registration.status}"
+      ></span>
+    </div>
+    <div class="detail-columns">
+      <section>
+        <div class="panel">
+          <div class="section-heading">
+            <h2>Thông tin thực hiện</h2>
+            <a th:href="@{/groups/{id}(id=${registration.groupId})}">Thành viên →</a>
+          </div>
+          <dl>
+            <dt>Đề tài</dt>
+            <dd>
+              <a
+                th:href="@{/topics/{id}(id=${registration.topicId})}"
+                th:text="${registration.topic}"
+              ></a>
+            </dd>
+            <dt>Hội đồng</dt>
+            <dd th:text="${registration.council}"></dd>
+            <dt>Lịch báo cáo</dt>
+            <dd th:text="${registration.schedule}"></dd>
+            <dt>Xác nhận hội đồng</dt>
+            <dd th:text="${registration.confirmed ? 'Chủ tịch đã xác nhận' : 'Chưa xác nhận'}"></dd>
+          </dl>
+          <div
+            class="flash info"
+            th:if="${registration.note != null and !registration.note.isBlank()}"
+            th:text="${registration.note}"
+          ></div>
+          <div
+            class="result-highlight"
+            th:if="${registration.result != null}"
+          >
+            <span>ĐIỂM ĐÃ CÔNG BỐ</span><strong th:text="${registration.result}"></strong
+            ><small>/ 10 · Trung bình cộng các phiếu hợp lệ</small>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Báo cáo đề tài</h2>
+          <a
+            class="file-row"
+            th:each="s : ${submissions}"
+            th:href="@{/submissions/{id}/download(id=${s.id})}"
+            ><span class="file-icon">↓</span>
+            <div>
+              <b th:text="${s.name}"></b
+              ><small
+                th:text="${'Phiên bản '+s.version+' · '+s.time+' · '+s.size+' bytes'}"
+              ></small>
+            </div>
+            <span>Tải xuống ↗</span></a
+          >
+          <p
+            th:if="${submissions.isEmpty()}"
+            class="muted"
+          >
+            Nhóm chưa nộp báo cáo.
+          </p>
+          <form
+            class="upload-form"
+            th:if="${registration.leader and registration.status == 'APPROVED'}"
+            th:action="@{/registrations/{id}/submissions(id=${registration.id})}"
+            method="post"
+            enctype="multipart/form-data"
+          >
+            <label
+              >Nộp phiên bản mới<input
+                name="file"
+                type="file"
+                accept=".pdf,.docx,.zip"
+                required /></label
+            ><small class="muted"
+              >PDF, DOCX hoặc ZIP · Tối đa 20 MB · Chỉ thay đổi khi chưa có điểm.</small
+            ><button class="button primary">Tải báo cáo lên ↑</button>
+          </form>
+        </div>
+        <div
+          class="panel"
+          th:if="${!evaluations.isEmpty()}"
+        >
+          <h2>Phiếu đánh giá trong quyền truy cập</h2>
+          <div
+            class="grade-row"
+            th:each="e : ${evaluations}"
+          >
+            <div>
+              <b th:text="${e.evaluator}"></b><small th:text="${e.type+' · '+e.status}"></small>
+              <p
+                class="muted"
+                th:text="${e.comment}"
+              ></p>
+            </div>
+            <strong th:text="${e.score}"></strong
+            ><a
+              class="button subtle small"
+              th:if="${e.mine}"
+              th:href="@{/evaluations/{id}(id=${e.id})}"
+              >Mở phiếu</a
+            >
+          </div>
+        </div>
+      </section>
+      <aside>
+        <div
+          class="panel"
+          th:if="${!progress.isEmpty()}"
+        >
+          <h3>Tiến độ nộp phiếu hội đồng</h3>
+          <div
+            class="simple-row"
+            th:each="p : ${progress}"
+          >
+            <span th:text="${p.evaluator+' · '+p.role}"></span
+            ><span
+              class="badge"
+              th:text="${p.status}"
+            ></span>
+          </div>
+          <small class="muted"
+            >Thư ký theo dõi tình trạng nộp; không xem hoặc sửa điểm của người khác.</small
+          >
+        </div>
+        <div
+          class="panel"
+          th:if="${registration.status == 'PENDING' and registration.faculty}"
+        >
+          <h3>Xử lý đăng ký</h3>
+          <form
+            th:action="@{/registrations/{id}/approve(id=${registration.id})}"
+            method="post"
+          >
+            <button class="button primary full">Chấp thuận nhóm</button>
+          </form>
+          <form
+            th:action="@{/registrations/{id}/reject(id=${registration.id})}"
+            method="post"
+          >
+            <label
+              >Lý do từ chối<textarea
+                name="note"
+                required
+              ></textarea></label
+            ><button class="button danger full">Từ chối đăng ký</button>
+          </form>
+        </div>
+        <form
+          class="panel"
+          th:if="${registration.status == 'PENDING' and registration.leader}"
+          th:action="@{/registrations/{id}/withdraw(id=${registration.id})}"
+          method="post"
+          data-confirm="Rút đăng ký đề tài này?"
+        >
+          <h3>Đang chờ phê duyệt</h3>
+          <button class="button subtle full">Rút đăng ký</button>
+        </form>
+        <div
+          class="panel"
+          th:if="${registration.faculty and registration.status == 'APPROVED'}"
+        >
+          <h3>Phân công đánh giá</h3>
+          <form
+            th:action="@{/registrations/{id}/reviewers(id=${registration.id})}"
+            method="post"
+          >
+            <label
+              >Giảng viên phản biện<select
+                name="lecturerIds"
+                multiple
+              >
+                <option
+                  th:each="l : ${lecturers}"
+                  th:value="${l.id}"
+                  th:text="${l.label}"
+                ></option></select></label
+            ><small class="muted"
+              >Chọn đúng số lượng theo cấu hình đợt. Không chọn GVHD hoặc thành viên HĐ của đề
+              tài.</small
+            ><button class="button subtle full">Lưu GVPB</button>
+          </form>
+          <form
+            th:if="${registration.councilId == null}"
+            th:action="@{/registrations/{id}/council(id=${registration.id})}"
+            method="post"
+          >
+            <label
+              >Hội đồng<select
+                name="councilId"
+                required
+              >
+                <option value="">Chọn hội đồng</option>
+                <option
+                  th:each="c : ${councils}"
+                  th:value="${c.id}"
+                  th:text="${c.name}"
+                ></option></select></label
+            ><button class="button subtle full">Giao hội đồng</button>
+          </form>
+          <a
+            href="/forms/councils"
+            class="text-link"
+            >Thành lập hội đồng mới →</a
+          >
+        </div>
+        <div
+          class="panel"
+          th:if="${registration.president}"
+        >
+          <h3>Xác nhận hội đồng</h3>
+          <p class="muted">Chỉ xác nhận khi tất cả thành viên đã gửi phiếu hợp lệ.</p>
+          <form
+            th:action="@{/registrations/{id}/confirm(id=${registration.id})}"
+            method="post"
+          >
+            <button class="button primary full">Xác nhận tổng hợp</button>
+          </form>
+        </div>
+        <div
+          class="panel"
+          th:if="${registration.faculty and registration.status == 'APPROVED'}"
+        >
+          <h3>Công bố kết quả</h3>
+          <p class="muted">
+            Hệ thống kiểm tra đủ phiếu và tính trung bình cộng. Email được tạo riêng cho từng sinh
+            viên.
+          </p>
+          <form
+            th:action="@{/registrations/{id}/publish(id=${registration.id})}"
+            method="post"
+            data-confirm="Công bố kết quả và tạo email cho từng sinh viên?"
+          >
+            <button class="button primary full">Công bố kết quả ↗</button>
+          </form>
+          <details>
+            <summary>Điều chỉnh kết quả / mở lại phiếu</summary>
+            <form
+              th:action="@{/registrations/{id}/reopen(id=${registration.id})}"
+              method="post"
+            >
+              <label
+                >Lý do điều chỉnh<textarea
+                  name="reason"
+                  minlength="10"
+                  required
+                ></textarea></label
+              ><button class="button danger full">Thu hồi & mở lại phiếu</button>
+            </form>
+          </details>
+          <form
+            th:if="${registration.result != null}"
+            th:action="@{/registrations/{id}/complete(id=${registration.id})}"
+            method="post"
+            data-confirm="Hoàn tất nhóm và giải phóng quyền tham gia nhóm mới? Không thể mở lại điểm từ giao diện sau bước này."
+          >
+            <button class="button subtle full">Lưu trữ nhóm đã hoàn tất</button>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </main>
+</html>

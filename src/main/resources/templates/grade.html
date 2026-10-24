@@ -1,1 +1,100 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" lang="vi" th:replace="~{layout :: page(~{::main})}"><main><a class="backlink" href="/evaluations">← Danh sách phiếu</a><div class="page-heading"><div><span class="eyebrow" th:text="${evaluation.type}"></span><h1>Phiếu đánh giá</h1><p class="muted" th:text="${evaluation.topic+' · '+evaluation.group}"></p></div><span class="badge" th:text="${evaluation.status}"></span></div><div class="detail-columns"><form class="panel" th:action="@{/evaluations/{id}(id=${evaluation.id})}" method="post" th:object="${form}"><label>Điểm đánh giá (0–10)<input type="number" min="0" max="10" step="0.01" th:field="*{score}" required th:disabled="${evaluation.status != 'DRAFT'}"></label><small class="field-error" th:errors="*{score}"></small><label>Nhận xét chuyên môn<textarea rows="8" th:field="*{comment}" required th:disabled="${evaluation.status != 'DRAFT'}"></textarea></label><small class="field-error" th:errors="*{comment}"></small><div class="actions" th:if="${evaluation.status == 'DRAFT'}"><button class="button subtle" name="submit" value="false">Lưu bản nháp</button><button class="button primary" name="submit" value="true">Gửi điểm chính thức ↗</button></div><div class="flash info" th:unless="${evaluation.status == 'DRAFT'}">Phiếu đã gửi. Chỉ được sửa khi Khoa mở lại theo quy trình điều chỉnh.</div></form><aside class="note"><h3>Đánh giá độc lập</h3><p>Điểm và nhận xét thuộc người chấm hiện tại. Không nhập thay người khác.</p><p>Điểm cuối cùng là trung bình cộng của các phiếu hợp lệ, không tính phiếu thiếu như điểm 0.</p><a class="button subtle" th:href="@{/registrations/{id}(id=${evaluation.registrationId})}">Xem báo cáo nhóm →</a></aside></div></main></html>
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  lang="vi"
+  th:replace="~{layout :: page(~{::main})}"
+>
+  <main>
+    <a
+      class="backlink"
+      href="/evaluations"
+      >← Danh sách phiếu</a
+    >
+    <div class="page-heading">
+      <div>
+        <span
+          class="eyebrow"
+          th:text="${evaluation.type}"
+        ></span>
+        <h1>Phiếu đánh giá</h1>
+        <p
+          class="muted"
+          th:text="${evaluation.topic+' · '+evaluation.group}"
+        ></p>
+      </div>
+      <span
+        class="badge"
+        th:text="${evaluation.status}"
+      ></span>
+    </div>
+    <div class="detail-columns">
+      <form
+        class="panel"
+        th:action="@{/evaluations/{id}(id=${evaluation.id})}"
+        method="post"
+        th:object="${form}"
+      >
+        <label
+          >Điểm đánh giá (0–10)<input
+            type="number"
+            min="0"
+            max="10"
+            step="0.01"
+            th:field="*{score}"
+            required
+            th:disabled="${evaluation.status != 'DRAFT'}" /></label
+        ><small
+          class="field-error"
+          th:errors="*{score}"
+        ></small
+        ><label
+          >Nhận xét chuyên môn<textarea
+            rows="8"
+            th:field="*{comment}"
+            required
+            th:disabled="${evaluation.status != 'DRAFT'}"
+          ></textarea></label
+        ><small
+          class="field-error"
+          th:errors="*{comment}"
+        ></small>
+        <div
+          class="actions"
+          th:if="${evaluation.status == 'DRAFT'}"
+        >
+          <button
+            class="button subtle"
+            name="submit"
+            value="false"
+          >
+            Lưu bản nháp</button
+          ><button
+            class="button primary"
+            name="submit"
+            value="true"
+          >
+            Gửi điểm chính thức ↗
+          </button>
+        </div>
+        <div
+          class="flash info"
+          th:unless="${evaluation.status == 'DRAFT'}"
+        >
+          Phiếu đã gửi. Chỉ được sửa khi Khoa mở lại theo quy trình điều chỉnh.
+        </div>
+      </form>
+      <aside class="note">
+        <h3>Đánh giá độc lập</h3>
+        <p>Điểm và nhận xét thuộc người chấm hiện tại. Không nhập thay người khác.</p>
+        <p>
+          Điểm cuối cùng là trung bình cộng của các phiếu hợp lệ, không tính phiếu thiếu như điểm 0.
+        </p>
+        <a
+          class="button subtle"
+          th:href="@{/registrations/{id}(id=${evaluation.registrationId})}"
+          >Xem báo cáo nhóm →</a
+        >
+      </aside>
+    </div>
+  </main>
+</html>

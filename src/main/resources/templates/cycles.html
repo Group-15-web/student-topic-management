@@ -1,1 +1,92 @@
-<!DOCTYPE html><html xmlns:th="http://www.thymeleaf.org" lang="vi" th:replace="~{layout :: page(~{::main})}"><main><div class="page-heading"><div><span class="eyebrow">LỊCH TRÌNH HỌC THUẬT</span><h1>Đợt đăng ký</h1><p class="muted">Hai giai đoạn rõ ràng. Một hành trình liền mạch.</p></div><a class="button primary" href="/forms/cycles" th:if="${me.has('FACULTY_MANAGER')}">+ Tạo đợt mới</a></div><div class="cycle-card panel" th:each="c : ${cycles}"><div class="section-heading"><div><span class="eyebrow" th:text="${c.type}"></span><h2 th:text="${c.name}"></h2></div><span class="badge" th:text="${c.phase}"></span></div><div class="timeline"><div><span class="step">01</span><h3>Giảng viên đề xuất</h3><p th:text="${c.lecturerStart}"></p><p th:text="${'→ '+c.lecturerEnd}"></p></div><div><span class="step">02</span><h3>Sinh viên đăng ký</h3><p th:text="${c.studentStart}"></p><p th:text="${'→ '+c.studentEnd}"></p></div><div><span class="step">03</span><h3>Nộp báo cáo</h3><p th:text="${c.deadline}"></p><p th:text="${c.min+'–'+c.max+' sinh viên / nhóm'}"></p></div><div><span class="step">04</span><h3>Đánh giá</h3><p th:text="${c.reviewers+' GVPB · '+(c.council ? 'Có hội đồng' : 'Không hội đồng')}"></p><p th:text="${'Hạn GVPB: '+c.reviewerDeadline}"></p></div></div><div class="card-bottom"><span th:text="${'Ngày HĐ: '+c.councilDate+' · '+c.status}"></span><div class="actions"><a th:href="@{/topics(cycleId=${c.id})}">Xem đề tài →</a><a th:if="${me.has('FACULTY_MANAGER')}" class="button subtle" th:href="@{/forms/cycles(id=${c.id})}">Chỉnh sửa</a><form th:if="${me.has('FACULTY_MANAGER')}" th:action="@{/cycles/{id}/delete(id=${c.id})}" method="post" data-confirm="Chỉ xóa được đợt chưa có dữ liệu. Tiếp tục?"><button class="button danger">Xóa</button></form></div></div></div><div class="empty" th:if="${cycles.isEmpty()}"><h3>Chưa có đợt đăng ký</h3></div></main></html>
+<!DOCTYPE html>
+<html
+  xmlns:th="http://www.thymeleaf.org"
+  lang="vi"
+  th:replace="~{layout :: page(~{::main})}"
+>
+  <main>
+    <div class="page-heading">
+      <div>
+        <span class="eyebrow">LỊCH TRÌNH HỌC THUẬT</span>
+        <h1>Đợt đăng ký</h1>
+        <p class="muted">Hai giai đoạn rõ ràng. Một hành trình liền mạch.</p>
+      </div>
+      <a
+        class="button primary"
+        href="/forms/cycles"
+        th:if="${me.has('FACULTY_MANAGER')}"
+        >+ Tạo đợt mới</a
+      >
+    </div>
+    <div
+      class="cycle-card panel"
+      th:each="c : ${cycles}"
+    >
+      <div class="section-heading">
+        <div>
+          <span
+            class="eyebrow"
+            th:text="${c.type}"
+          ></span>
+          <h2 th:text="${c.name}"></h2>
+        </div>
+        <span
+          class="badge"
+          th:text="${c.phase}"
+        ></span>
+      </div>
+      <div class="timeline">
+        <div>
+          <span class="step">01</span>
+          <h3>Giảng viên đề xuất</h3>
+          <p th:text="${c.lecturerStart}"></p>
+          <p th:text="${'→ '+c.lecturerEnd}"></p>
+        </div>
+        <div>
+          <span class="step">02</span>
+          <h3>Sinh viên đăng ký</h3>
+          <p th:text="${c.studentStart}"></p>
+          <p th:text="${'→ '+c.studentEnd}"></p>
+        </div>
+        <div>
+          <span class="step">03</span>
+          <h3>Nộp báo cáo</h3>
+          <p th:text="${c.deadline}"></p>
+          <p th:text="${c.min+'–'+c.max+' sinh viên / nhóm'}"></p>
+        </div>
+        <div>
+          <span class="step">04</span>
+          <h3>Đánh giá</h3>
+          <p th:text="${c.reviewers+' GVPB · '+(c.council ? 'Có hội đồng' : 'Không hội đồng')}"></p>
+          <p th:text="${'Hạn GVPB: '+c.reviewerDeadline}"></p>
+        </div>
+      </div>
+      <div class="card-bottom">
+        <span th:text="${'Ngày HĐ: '+c.councilDate+' · '+c.status}"></span>
+        <div class="actions">
+          <a th:href="@{/topics(cycleId=${c.id})}">Xem đề tài →</a
+          ><a
+            th:if="${me.has('FACULTY_MANAGER')}"
+            class="button subtle"
+            th:href="@{/forms/cycles(id=${c.id})}"
+            >Chỉnh sửa</a
+          >
+          <form
+            th:if="${me.has('FACULTY_MANAGER')}"
+            th:action="@{/cycles/{id}/delete(id=${c.id})}"
+            method="post"
+            data-confirm="Chỉ xóa được đợt chưa có dữ liệu. Tiếp tục?"
+          >
+            <button class="button danger">Xóa</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div
+      class="empty"
+      th:if="${cycles.isEmpty()}"
+    >
+      <h3>Chưa có đợt đăng ký</h3>
+    </div>
+  </main>
+</html>
