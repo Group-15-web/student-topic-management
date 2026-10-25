@@ -15,15 +15,20 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.ApplicationContext;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import vn.edu.detaihub.dto.Forms;
 import vn.edu.detaihub.model.*;
 import vn.edu.detaihub.repository.DomainRepository;
+import vn.edu.detaihub.security.SessionVersionFilter;
 import vn.edu.detaihub.service.*;
 
 @SpringBootTest(
@@ -48,6 +53,8 @@ class ApplicationTest {
   @Autowired SubmissionService submissions;
   @Autowired TopicService topics;
   @Autowired AccountService accounts;
+  @Autowired ApplicationContext applicationContext;
+  @Autowired SecurityFilterChain securityChain;
 
   void as(String email) {
     var u = users.loadUserByUsername(email + "@demo.local");
@@ -104,7 +111,9 @@ class ApplicationTest {
   @MethodSource("pages")
   void allPagesRender(String name, String path) throws Exception {
     mvc.perform(get(path).with(user(users.loadUserByUsername(name + "@demo.local"))))
-        .andExpect(status().isOk());
+        .andExpect(status().isOk())
+        .andExpect(model().attribute("path", path))
+        .andExpect(model().attributeExists("me", "mailMode", "demoSeed"));
   }
 
   @Test
@@ -139,8 +148,16 @@ class ApplicationTest {
 
   @Test
   void authenticationAndCsrf() throws Exception {
-    mvc.perform(get("/api/v1/topics")).andExpect(status().isUnauthorized());
-    mvc.perform(get("/topics")).andExpect(status().is3xxRedirection());
+    mvc.perform(get("/api/v1/topics"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType("application/json"))
+        .andExpect(content().string("{\"error\":\"UNAUTHENTICATED\"}"));
+    mvc.perform(get("/topics")).andExpect(redirectedUrl("/login"));
+    mvc.perform(
+            post("/login")
+                .param("username", "sv1@demo.local")
+                .param("password", "Demo@2026!"))
+        .andExpect(status().isForbidden());
     mvc.perform(
             post("/profile")
                 .with(user(users.loadUserByUsername("sv1@demo.local")))
@@ -291,6 +308,193 @@ class ApplicationTest {
   }
 
   @Test
+  void unknownFormTypeStillReturnsTheNotFoundErrorPage() throws Exception {
+    mvc.perform(
+            get("/forms/not-a-real-type")
+                .with(user(users.loadUserByUsername("sv1@demo.local"))))
+        .andExpect(status().isNotFound())
+        .andExpect(view().name("error"))
+        .andExpect(model().attribute("code", 404))
+        .andExpect(model().attribute("message", "Không tìm thấy biểu mẫu."));
+  }
+
+  @Test
+  void malformedFormIdStillReturnsTheBadRequestErrorPage() throws Exception {
+    mvc.perform(
+            get("/forms/topics")
+                .param("id", "not-a-number")
+                .with(user(users.loadUserByUsername("gv1@demo.local"))))
+        .andExpect(status().isBadRequest())
+        .andExpect(view().name("error"))
+        .andExpect(model().attribute("code", 400));
+  }
+
+  @Test
+  void groupCreationFormContinuesToIgnoreAnIdParameter() throws Exception {
+    var result =
+        mvc.perform(
+                get("/forms/groups")
+                    .param("id", "999999")
+                    .with(user(users.loadUserByUsername("sv1@demo.local"))))
+            .andExpect(status().isOk())
+            .andExpect(view().name("form"))
+            .andExpect(model().attribute("type", "groups"))
+            .andExpect(model().attribute("title", "Tạo nhóm thực hiện"))
+            .andReturn();
+    var model = result.getModelAndView().getModel();
+    assertThat(model.get("form")).isInstanceOf(Forms.Group.class);
+    var form = (Forms.Group) model.get("form");
+    assertThat(form.getName()).isNull();
+    assertThat(form.getCycleId()).isNull();
+    assertThat((List<?>) model.get("fields"))
+        .extracting("name")
+        .containsExactly("name", "cycleId");
+  }
+
+  @Test
+  void councilEditFormPreservesTheCouncilAndItsMemberAssignments() throws Exception {
+    var council = db.all(ReviewCouncil.class).getFirst();
+    var members =
+        db.all(CouncilMember.class).stream()
+            .filter(member -> member.getCouncilId().equals(council.getId()))
+            .toList();
+    var result =
+        mvc.perform(
+                get("/forms/councils")
+                    .param("id", council.getId().toString())
+                    .with(user(users.loadUserByUsername("khoa@demo.local"))))
+            .andExpect(status().isOk())
+            .andExpect(view().name("form"))
+            .andExpect(model().attribute("type", "councils"))
+            .andExpect(model().attribute("title", "Thành lập hội đồng"))
+            .andReturn();
+    var model = result.getModelAndView().getModel();
+    assertThat(model.get("form")).isInstanceOf(Forms.Council.class);
+    var form = (Forms.Council) model.get("form");
+    assertThat(form.getId()).isEqualTo(council.getId());
+    assertThat(form.getName()).isEqualTo(council.getName());
+    assertThat(form.getCycleId()).isEqualTo(council.getCycleId());
+    assertThat(form.getReportAt()).isEqualTo(council.getReportAt());
+    assertThat(form.getLocation()).isEqualTo(council.getLocation());
+    assertThat(form.getPresidentId())
+        .isEqualTo(
+            members.stream()
+                .filter(member -> member.getMemberRole().equals("PRESIDENT"))
+                .findFirst()
+                .orElseThrow()
+                .getLecturerId());
+    assertThat(form.getSecretaryId())
+        .isEqualTo(
+            members.stream()
+                .filter(member -> member.getMemberRole().equals("SECRETARY"))
+                .findFirst()
+                .orElseThrow()
+                .getLecturerId());
+    assertThat(form.getMemberIds())
+        .containsExactlyInAnyOrderElementsOf(
+            members.stream()
+                .filter(member -> !Set.of("PRESIDENT", "SECRETARY").contains(member.getMemberRole()))
+                .map(CouncilMember::getLecturerId)
+                .toList());
+    assertThat((List<?>) model.get("fields"))
+        .extracting("name")
+        .containsExactly(
+            "name", "cycleId", "presidentId", "secretaryId", "memberIds", "reportAt", "location");
+  }
+
+  static Stream<Arguments> invalidFormCases() {
+    return Stream.of(
+        Arguments.of(
+            "topics", "gv1", Forms.Topic.class, "title", "description", "Thông tin đề tài"),
+        Arguments.of(
+            "cycles", "khoa", Forms.Cycle.class, "name", "lecturerStart", "Thiết lập đợt đăng ký"),
+        Arguments.of(
+            "accounts", "admin", Forms.Account.class, "fullName", "email", "Tài khoản & hồ sơ"),
+        Arguments.of(
+            "departments", "admin", Forms.Department.class, "name", "code", "Thông tin bộ môn"),
+        Arguments.of(
+            "groups", "sv1", Forms.Group.class, "name", "cycleId", "Tạo nhóm thực hiện"),
+        Arguments.of(
+            "councils", "khoa", Forms.Council.class, "name", "cycleId", "Thành lập hội đồng"),
+        Arguments.of(
+            "announcements", "admin", Forms.Announcement.class, "title", "content", "Biên soạn thông báo"));
+  }
+
+  @ParameterizedTest(name = "Invalid POST /forms/{0} keeps binding and metadata")
+  @MethodSource("invalidFormCases")
+  void invalidFormsKeepTheirDtoFieldErrorsSubmittedValuesAndMetadata(
+      String type,
+      String name,
+      Class<?> formType,
+      String retainedField,
+      String requiredField,
+      String title)
+      throws Exception {
+    String retainedValue = "Dữ liệu đã nhập";
+    var result =
+        mvc.perform(
+                post("/forms/" + type)
+                    .with(user(users.loadUserByUsername(name + "@demo.local")))
+                    .with(csrf())
+                    .param(retainedField, retainedValue))
+            .andExpect(status().isOk())
+            .andExpect(view().name("form"))
+            .andExpect(model().attributeHasFieldErrors("form", requiredField))
+            .andExpect(model().attribute("type", type))
+            .andExpect(model().attribute("title", title))
+            .andExpect(model().attribute("path", "/forms/" + type))
+            .andExpect(model().attributeExists("me", "mailMode", "demoSeed"))
+            .andReturn();
+    var model = result.getModelAndView().getModel();
+    assertThat(model.get("form")).isInstanceOf(formType);
+    assertThat(model.get("form")).extracting(retainedField).isEqualTo(retainedValue);
+    assertThat((List<?>) model.get("fields"))
+        .isNotEmpty()
+        .extracting("name")
+        .contains(retainedField, requiredField);
+  }
+
+  @Test
+  void successfulDepartmentFormStillRedirectsWithTheSuccessFlash() throws Exception {
+    mvc.perform(
+            post("/forms/departments")
+                .with(user(users.loadUserByUsername("admin@demo.local")))
+                .with(csrf())
+                .param("code", "MVC_SPLIT_TEST")
+                .param("name", "Bộ môn kiểm thử MVC"))
+        .andExpect(redirectedUrl("/departments"))
+        .andExpect(flash().attribute("success", "Đã lưu dữ liệu thành công."));
+    assertThat(db.all(Department.class))
+        .anyMatch(
+            department ->
+                department.getCode().equals("MVC_SPLIT_TEST")
+                    && department.getName().equals("Bộ môn kiểm thử MVC"));
+  }
+
+  @Test
+  void duplicateDepartmentFormStillKeepsTheInputAndDisplaysTheRuleError() throws Exception {
+    String code = db.all(Department.class).getFirst().getCode();
+    String submittedName = "Tên bộ môn đã nhập";
+    var result =
+        mvc.perform(
+                post("/forms/departments")
+                    .with(user(users.loadUserByUsername("admin@demo.local")))
+                    .with(csrf())
+                    .param("code", code)
+                    .param("name", submittedName))
+            .andExpect(status().isOk())
+            .andExpect(view().name("form"))
+            .andExpect(model().attribute("type", "departments"))
+            .andExpect(model().attribute("title", "Thông tin bộ môn"))
+            .andExpect(model().attribute("error", "Mã bộ môn đã tồn tại."))
+            .andReturn();
+    var form = (Forms.Department) result.getModelAndView().getModel().get("form");
+    assertThat(form.getId()).isNull();
+    assertThat(form.getCode()).isEqualTo(code);
+    assertThat(form.getName()).isEqualTo(submittedName);
+  }
+
+  @Test
   void passwordResetInvalidatesExistingSession() throws Exception {
     var login =
         mvc.perform(
@@ -308,7 +512,91 @@ class ApplicationTest {
             .orElseThrow();
     u.setSecurityVersion(u.getSecurityVersion() + 1);
     db.flush();
-    mvc.perform(get("/topics").session(session)).andExpect(status().is3xxRedirection());
+    mvc.perform(get("/topics").session(session)).andExpect(redirectedUrl("/login"));
+    assertThat(session.isInvalid()).isTrue();
+  }
+
+  @Test
+  void sessionFilterIsRegisteredOnceAndOnlyInsideSpringSecurity() {
+    assertThat(applicationContext.getBeansOfType(UserDetailsService.class)).hasSize(1);
+    assertThat(applicationContext.getBeansOfType(SessionVersionFilter.class)).isEmpty();
+
+    var filters = securityChain.getFilters();
+    assertThat(filters.stream().filter(SessionVersionFilter.class::isInstance).count()).isEqualTo(1);
+    var sessionFilter =
+        filters.stream().filter(SessionVersionFilter.class::isInstance).findFirst().orElseThrow();
+    var loginFilter =
+        filters.stream()
+            .filter(UsernamePasswordAuthenticationFilter.class::isInstance)
+            .findFirst()
+            .orElseThrow();
+    assertThat(filters.indexOf(sessionFilter)).isGreaterThan(filters.indexOf(loginFilter));
+  }
+
+  @Test
+  void successfulLoginInitializesSessionAndCachesAuthoritiesOnTheNextRequest() throws Exception {
+    var session = loginAsStudent();
+    var account = studentAccount();
+    assertThat(session.getAttribute("securityVersion")).isEqualTo(account.getSecurityVersion());
+    assertThat(session.getAttribute("loadedSecurityVersion")).isNull();
+
+    mvc.perform(get("/topics").session(session)).andExpect(status().isOk());
+    assertThat(session.getAttribute("loadedSecurityVersion"))
+        .isEqualTo(account.getSecurityVersion());
+    mvc.perform(get("/topics").session(session)).andExpect(status().isOk());
+  }
+
+  @Test
+  void disabledAccountInvalidatesItsExistingBrowserSession() throws Exception {
+    var session = loginAsStudent();
+    studentAccount().setEnabled(false);
+    db.flush();
+
+    mvc.perform(get("/topics").session(session)).andExpect(redirectedUrl("/login"));
+    assertThat(session.isInvalid()).isTrue();
+  }
+
+  @Test
+  void revokedApiSessionReturnsJsonInsteadOfRedirecting() throws Exception {
+    var session = loginAsStudent();
+    var account = studentAccount();
+    account.setSecurityVersion(account.getSecurityVersion() + 1);
+    db.flush();
+
+    mvc.perform(get("/api/v1/topics").session(session))
+        .andExpect(status().isUnauthorized())
+        .andExpect(content().contentType("application/json"))
+        .andExpect(content().string("{\"error\":\"UNAUTHENTICATED\"}"));
+    assertThat(session.isInvalid()).isTrue();
+  }
+
+  @Test
+  void logoutInvalidatesTheSessionAndClearsItsCookie() throws Exception {
+    var session = loginAsStudent();
+
+    mvc.perform(post("/logout").session(session).with(csrf()))
+        .andExpect(redirectedUrl("/login?logout"))
+        .andExpect(cookie().maxAge("JSESSIONID", 0));
+    assertThat(session.isInvalid()).isTrue();
+  }
+
+  private MockHttpSession loginAsStudent() throws Exception {
+    var login =
+        mvc.perform(
+                post("/login")
+                    .with(csrf())
+                    .param("username", "sv1@demo.local")
+                    .param("password", "Demo@2026!"))
+            .andExpect(redirectedUrl("/"))
+            .andReturn();
+    return (MockHttpSession) login.getRequest().getSession(false);
+  }
+
+  private UserAccount studentAccount() {
+    return db.all(UserAccount.class).stream()
+        .filter(account -> account.getEmail().equals("sv1@demo.local"))
+        .findFirst()
+        .orElseThrow();
   }
 
   @Test
