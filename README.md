@@ -112,14 +112,7 @@ Test mặc định dùng H2 trong RAM, không dùng database MySQL đang chạy.
 
 Khi sửa source, cần đóng gói lại JAR trước khi chạy bản mới. Trên Windows, dừng tiến trình đang dùng JAR trước khi build lại.
 
-## Cấu hình và dữ liệu
 
-Cấu hình nằm trong [application.properties](src/main/resources/application.properties), lấy giá trị từ biến môi trường. Chạy trực tiếp bằng Maven hoặc JAR không tự đọc file `.env`.
-
-- Database dùng `DB_URL`, `DB_USER`, `DB_PASSWORD`.
-- Địa chỉ và cổng ứng dụng dùng `APP_ADDRESS`, `PORT`. Mặc định là `127.0.0.1:8080`.
-- Báo cáo nộp lên lưu tại `APP_STORAGE`, mặc định `.local/uploads`. Khi sao lưu cần giữ cả database và thư mục này.
-- `DEMO_SEED=true` tạo dữ liệu mẫu khi chưa có tài khoản. Danh sách tài khoản mẫu nằm trong [DemoData.java](src/main/java/vn/edu/detaihub/config/DemoData.java). Tắt seed không xóa các tài khoản đã tạo trước đó.
 
 Nếu tắt seed ngay trên database trống, cần chuẩn bị tài khoản ban đầu vì web không có trang đăng ký công khai.
 
