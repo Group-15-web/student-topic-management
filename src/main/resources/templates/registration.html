@@ -180,7 +180,19 @@
           <h3>Đang chờ phê duyệt</h3>
           <button class="button subtle full">Rút đăng ký</button>
         </form>
-        <div
+                <form
+          class="panel"
+          th:if="${(registration.faculty or (me != null and me.has('SYSTEM_ADMIN'))) and registration.status == 'APPROVED'}"
+          th:action="@{/registrations/{id}/cancel(id=${registration.id})}"
+          method="post"
+          onsubmit="const r = prompt('Nhập lý do hủy đề tài đã duyệt (sinh viên bỏ dở / giải tán nhóm):'); if (!r || r.trim().length < 5) return false; this.reason.value = r; return true;"
+        >
+          <h3>Hủy đề tài khẩn cấp</h3>
+          <p class="muted">Giải phóng nhóm và sinh viên nếu nhóm bỏ dở đề tài giữa kỳ.</p>
+          <input type="hidden" name="reason" value="" />
+          <button class="button danger small" type="submit">Hủy phê duyệt đề tài</button>
+        </form>
+<div
           class="panel"
           th:if="${registration.faculty and registration.status == 'APPROVED'}"
         >

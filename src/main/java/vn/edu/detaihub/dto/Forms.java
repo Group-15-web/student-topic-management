@@ -97,6 +97,8 @@ public final class Forms {
     private int reviewerCount = 1;
 
     private boolean councilRequired = true;
+    private boolean whitelistRequired = false;
+    private String targetIntakes;
     private String status = "ACTIVE";
   }
 

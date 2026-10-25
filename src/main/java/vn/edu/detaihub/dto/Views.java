@@ -61,6 +61,8 @@ public final class Views {
       int reviewers,
       boolean council) {}
 
+  public record MemberItem(Long groupId, Long id, Long userId, String code, String name, String status) {}
+
   public record Member(
       Long id, String code, String name, String status, boolean leader, boolean me) {}
 
@@ -77,6 +79,8 @@ public final class Views {
       boolean invited,
       boolean editable,
       List<Member> members) {}
+
+  public record RegistrationItem(Long id, Long groupId, String groupName, Long leaderId, Long topicId, String topicTitle, Long cycleId, String cycleName, String status, String note) {}
 
   public record Registration(
       Long id,

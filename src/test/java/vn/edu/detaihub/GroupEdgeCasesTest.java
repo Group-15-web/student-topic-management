@@ -82,4 +82,13 @@ class GroupEdgeCasesTest {
     var inviteGroup2 = memberRepo.findByGroupIdAndStudentId(2L, sv7.getId()).orElseThrow();
     assertThat(inviteGroup2.getStatus()).isEqualTo("CANCELLED");
   }
+
+  @Test
+  void cannotTransferLeaderToSelf() {
+    asUser("sv1@demo.local");
+    var sv1 = studentRepo.findByCode("SV001").orElseThrow();
+    assertThatThrownBy(() -> groups.transfer(1L, sv1.getId()))
+        .isInstanceOf(RuleException.class)
+        .hasMessageContaining("Sinh viên này hiện đã là trưởng nhóm");
+  }
 }

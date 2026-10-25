@@ -133,6 +133,18 @@ public class PageController {
     return "cycles";
   }
 
+
+  @PostMapping("/cycles/{id}/import-whitelist")
+  public String importWhitelist(
+      @PathVariable Long id,
+      @RequestParam(name = "file", required = false) MultipartFile file,
+      @RequestParam(name = "manualCodes", required = false, defaultValue = "") String manualCodes,
+      RedirectAttributes ra) {
+    int count = topics.importEligibleStudents(id, file, manualCodes);
+    ra.addFlashAttribute("notice", "Đã nạp thành công " + count + " sinh viên đủ điều kiện.");
+    return "redirect:/cycles";
+  }
+
   @PostMapping("/cycles/{id}/delete")
   public String deleteCycle(@PathVariable Long id, RedirectAttributes ra) {
     topics.deleteCycle(id);
@@ -176,8 +188,11 @@ public class PageController {
 
   @PostMapping("/groups/{id}/leader")
   public String transfer(
-      @PathVariable Long id, @RequestParam Long studentId, RedirectAttributes ra) {
-    groups.transfer(id, studentId);
+      @PathVariable Long id,
+      @RequestParam Long studentId,
+      @RequestParam(name = "reason", required = false, defaultValue = "") String reason,
+      RedirectAttributes ra) {
+    groups.transfer(id, studentId, reason);
     return done("/groups/" + id, ra);
   }
 
@@ -218,6 +233,15 @@ public class PageController {
       @RequestParam(defaultValue = "") String note,
       RedirectAttributes ra) {
     groups.decision(id, action, note);
+    return done("/registrations/" + id, ra);
+  }
+
+  @PostMapping("/registrations/{id}/cancel")
+  public String cancelRegistration(
+      @PathVariable Long id,
+      @RequestParam(defaultValue = "") String reason,
+      RedirectAttributes ra) {
+    groups.cancelApprovedRegistration(id, reason);
     return done("/registrations/" + id, ra);
   }
 

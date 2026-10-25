@@ -71,6 +71,19 @@
             th:href="@{/forms/cycles(id=${c.id})}"
             >Chỉnh sửa</a
           >
+          <details th:if="${me.has('FACULTY_MANAGER')}" class="dropdown" style="display:inline-block;">
+            <summary class="button subtle" style="cursor:pointer;">+ DS đủ điều kiện</summary>
+            <div class="panel" style="position:absolute; right:20px; z-index:100; min-width:320px; box-shadow:0 8px 24px rgba(0,0,0,0.15); margin-top:8px;">
+              <h4>Nạp danh sách SV đủ điều kiện</h4>
+              <form th:action="@{/cycles/{id}/import-whitelist(id=${c.id})}" method="post" enctype="multipart/form-data">
+                <label style="display:block; margin-top:8px; font-size:12px;">1. Tải file CSV / TXT:</label>
+                <input type="file" name="file" accept=".csv,.txt" style="margin-bottom:8px; font-size:12px;" />
+                <label style="display:block; margin-top:8px; font-size:12px;">2. Hoặc dán MSSV (mỗi dòng 1 mã):</label>
+                <textarea name="manualCodes" rows="4" style="width:100%; font-size:12px;" placeholder="2101001&#10;2101002"></textarea>
+                <button type="submit" class="button primary small" style="margin-top:8px; width:100%;">Nạp vào đợt</button>
+              </form>
+            </div>
+          </details>
           <form
             th:if="${me.has('FACULTY_MANAGER')}"
             th:action="@{/cycles/{id}/delete(id=${c.id})}"

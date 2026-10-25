@@ -156,8 +156,26 @@ public class AccountService {
     actor.need("SYSTEM_ADMIN");
     require(!id.equals(actor.user().getId()), "Không xóa tài khoản mình.");
     var u = db.get(UserAccount.class, id);
-    for (var s : db.all(Student.class)) if (s.getUserId().equals(id)) db.delete(s);
-    for (var l : db.all(Lecturer.class)) if (l.getUserId().equals(id)) db.delete(l);
+    for (var s : db.all(Student.class)) {
+      if (s.getUserId().equals(id)) {
+        boolean hasGroups = db.all(GroupMember.class).stream().anyMatch(m -> m.getStudentId().equals(s.getId()))
+            || db.all(StudentGroup.class).stream().anyMatch(g -> Objects.equals(g.getLeaderId(), s.getId()));
+        require(!hasGroups, "Không thể xóa tài khoản sinh viên đã tham gia nhóm hoặc làm trưởng nhóm. Hãy vô hiệu hóa tài khoản thay vì xóa.");
+        for (var e : db.all(CycleEligibleStudent.class)) {
+          if (e.getStudentId().equals(s.getId())) db.delete(e);
+        }
+        db.delete(s);
+      }
+    }
+    for (var l : db.all(Lecturer.class)) {
+      if (l.getUserId().equals(id)) {
+        boolean hasTopics = db.all(TopicSupervisor.class).stream().anyMatch(ts -> ts.getLecturerId().equals(l.getId()))
+            || db.all(ReviewerAssignment.class).stream().anyMatch(ra -> ra.getLecturerId().equals(l.getId()))
+            || db.all(CouncilMember.class).stream().anyMatch(cm -> cm.getLecturerId().equals(l.getId()));
+        require(!hasTopics, "Không thể xóa tài khoản giảng viên đã có lịch sử hướng dẫn, phản biện hoặc hội đồng. Hãy vô hiệu hóa tài khoản.");
+        db.delete(l);
+      }
+    }
     for (var r : db.all(UserRole.class)) if (r.getUserId().equals(id)) db.delete(r);
     db.delete(u);
     audit.record("DELETE_ACCOUNT", "user", id, "Xóa tài khoản chưa sử dụng");
@@ -192,6 +210,9 @@ public class AccountService {
 
   public void deleteDepartment(Long id) {
     actor.need("SYSTEM_ADMIN", "FACULTY_MANAGER");
+    boolean hasLecturers = db.all(Lecturer.class).stream().anyMatch(l -> Objects.equals(l.getDepartmentId(), id));
+    boolean hasTopics = db.all(Topic.class).stream().anyMatch(t -> Objects.equals(t.getDepartmentId(), id));
+    require(!hasLecturers && !hasTopics, "Không thể xóa bộ môn đã có giảng viên hoặc đề tài trực thuộc.");
     db.delete(db.get(Department.class, id));
     audit.record("DELETE_DEPARTMENT", "department", id, "");
   }

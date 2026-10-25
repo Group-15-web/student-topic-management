@@ -56,6 +56,23 @@
                 th:value="${mem.id}"
               /><button class="button subtle small">Chuyển trưởng nhóm</button>
             </form>
+            <form
+              th:if="${me != null and me.has('SYSTEM_ADMIN') and mem.status == 'ACTIVE' and !mem.leader}"
+              th:action="@{/groups/{id}/leader(id=${group.id})}"
+              method="post"
+              onsubmit="const r = prompt('CĂN CỨ THỰC THI (Admin Override):\nNhập số quyết định hoặc lý do phê duyệt từ Khoa:'); if (!r || !r.trim()) return false; this.querySelector('input[name=reason]').value = r.trim(); return true;"
+            >
+              <input
+                type="hidden"
+                name="studentId"
+                th:value="${mem.id}"
+              />
+              <input
+                type="hidden"
+                name="reason"
+                value=""
+              /><button class="button danger small" title="Cưỡng chế đổi trưởng nhóm theo phê duyệt từ Khoa">Chỉ định Trưởng nhóm (Admin)</button>
+            </form>
           </div>
         </div>
         <div class="panel">

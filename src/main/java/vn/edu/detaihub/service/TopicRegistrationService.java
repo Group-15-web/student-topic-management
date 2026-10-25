@@ -33,6 +33,7 @@ public class TopicRegistrationService {
   private final TopicService topics;
   private final GroupService groups;
   private final AuditService audit;
+  private final CycleEligibleStudentRepository eligibleRepo;
 
   public boolean canView(TopicRegistration r) {
     if (actor.faculty() || groups.member(r.getGroupId())) return true;
@@ -126,10 +127,29 @@ public class TopicRegistrationService {
     require(t.getStatus().equals("PUBLISHED"), "Đề tài chưa công bố.");
 
     // Ca biên 4: Kiểm tra sĩ số nhóm đủ chuẩn của đợt
-    int n = groups.members(g.getId()).size();
+    var activeMembers = groups.members(g.getId());
+    int n = activeMembers.size();
     require(
         n >= c.getMinMembers() && n <= c.getMaxMembers(),
         "Nhóm phải có " + c.getMinMembers() + "–" + c.getMaxMembers() + " thành viên.");
+
+    // Ca biên 4.1: Kiểm tra tư cách toàn bộ thành viên trong nhóm (Target Intakes & Whitelist)
+    for (var m : activeMembers) {
+      var s = studentRepo.findById(m.getStudentId())
+          .orElseThrow(() -> new RuleException("Không tìm thấy thông tin thành viên.", 404));
+      if (c.getTargetIntakes() != null && !c.getTargetIntakes().trim().isEmpty()) {
+        List<String> allowed = Arrays.stream(c.getTargetIntakes().split("[,;\s]+"))
+            .map(String::trim).filter(str -> !str.isEmpty()).toList();
+        String studentIntake = s.getIntake() != null ? s.getIntake().trim() : "";
+        require(allowed.stream().anyMatch(studentIntake::equalsIgnoreCase),
+            "Thành viên " + s.getCode() + " (Khóa: " + (studentIntake.isEmpty() ? "Chưa cập nhật" : studentIntake)
+                + ") không thuộc đối tượng tham gia đợt này (Yêu cầu: " + c.getTargetIntakes() + ").");
+      }
+      if (Boolean.TRUE.equals(c.getWhitelistRequired())) {
+        require(eligibleRepo.existsByCycleIdAndStudentId(c.getId(), s.getId()),
+            "Thành viên " + s.getCode() + " không có tên trong danh sách đủ điều kiện của Khoa.");
+      }
+    }
 
     // Ca biên 5: Nhóm không được có đơn PENDING hoặc APPROVED khác
     boolean alreadyRegistered =
@@ -208,5 +228,53 @@ public class TopicRegistrationService {
     registrationRepo.save(r);
     groupRepo.save(g);
     audit.record("REGISTRATION_" + decision.toUpperCase(), "registration", id, note);
+  }
+
+  @PreAuthorize("hasAnyRole('FACULTY_MANAGER', 'SYSTEM_ADMIN')")
+  public void cancelApprovedRegistration(Long id, String reason) {
+    actor.need("FACULTY_MANAGER", "SYSTEM_ADMIN");
+    require(reason != null && reason.trim().length() >= 5, "Nhập lý do hủy cụ thể (tối thiểu 5 ký tự).");
+
+    // 0. Đọc snapshot trước để lấy khóa ngoại, chuẩn hóa Global Lock Ordering (tránh Deadlock)
+    var target = registrationRepo.findById(id)
+        .orElseThrow(() -> new RuleException("Không tìm thấy đơn đăng ký.", 404));
+
+    // 1. Luôn khóa StudentGroup trước theo thứ tự chuẩn toàn hệ thống
+    var g = groupRepo.findByIdWithLock(target.getGroupId())
+        .orElseThrow(() -> new RuleException("Không tìm thấy nhóm.", 404));
+
+    // 2. Tiếp theo khóa Topic
+    var t = topicRepo.findByIdWithLock(target.getTopicId())
+        .orElseThrow(() -> new RuleException("Không tìm thấy đề tài.", 404));
+
+    // 3. Sau cùng khóa TopicRegistration
+    var r = registrationRepo.findByIdWithLock(id)
+        .orElseThrow(() -> new RuleException("Không tìm thấy đơn đăng ký.", 404));
+
+    require(r.getStatus().equals("APPROVED"), "Chỉ có thể hủy đơn đăng ký đã được phê duyệt.");
+
+    r.setStatus("CANCELLED");
+    r.setNote("Quản trị viên hủy đề tài: " + reason.trim());
+    r.setDecidedBy(actor.user().getId());
+    registrationRepo.save(r);
+
+    // Giải phóng trạng thái nhóm và tất cả thành viên sinh viên
+    g.setStatus("DISBANDED");
+    groupRepo.save(g);
+
+    var activeMembers = groups.members(g.getId());
+    for (var m : activeMembers) {
+      m.setStatus("LEFT");
+      memberRepo.save(m);
+
+      var s = studentRepo.findByIdWithLock(m.getStudentId()).orElse(null);
+      if (s != null && Objects.equals(s.getActiveGroupId(), g.getId())) {
+        s.setActiveGroupId(null);
+        studentRepo.save(s);
+      }
+    }
+
+    audit.record("CANCEL_APPROVED_REGISTRATION", "registration", id, reason);
+    audit.record("DISBAND_GROUP", "group", g.getId(), "Hủy đề tài đã duyệt: " + reason);
   }
 }

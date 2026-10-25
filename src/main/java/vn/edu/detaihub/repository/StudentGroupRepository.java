@@ -20,6 +20,8 @@ public interface StudentGroupRepository extends JpaRepository<StudentGroup, Long
 
   List<StudentGroup> findByLeaderId(Long leaderId);
 
+  boolean existsByCycleIdAndNameIgnoreCase(Long cycleId, String name);
+
   @Query("SELECT g FROM StudentGroup g WHERE g.id IN :ids")
   List<StudentGroup> findByIdIn(@Param("ids") List<Long> ids);
 }

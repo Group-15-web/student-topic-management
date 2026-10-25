@@ -1,5 +1,6 @@
 package vn.edu.detaihub.repository;
 
+import vn.edu.detaihub.dto.Views;
 import jakarta.persistence.LockModeType;
 import java.util.List;
 import java.util.Optional;
@@ -34,4 +35,29 @@ public interface TopicRegistrationRepository extends JpaRepository<TopicRegistra
 
   @Query("SELECT r FROM TopicRegistration r WHERE r.id IN :ids")
   List<TopicRegistration> findByIdIn(@Param("ids") List<Long> ids);
+
+  @Query("""
+      SELECT new vn.edu.detaihub.dto.Views$RegistrationItem(
+          r.id, g.id, g.name, g.leaderId, t.id, t.title, c.id, c.name, r.status, r.note
+      )
+      FROM TopicRegistration r
+      JOIN StudentGroup g ON r.groupId = g.id
+      JOIN Topic t ON r.topicId = t.id
+      JOIN RegistrationCycle c ON g.cycleId = c.id
+      WHERE r.id IN :ids
+  """)
+  List<Views.RegistrationItem> findRegistrationItemsByIdIn(@Param("ids") List<Long> ids);
+
+  @Query("""
+      SELECT new vn.edu.detaihub.dto.Views$RegistrationItem(
+          r.id, g.id, g.name, g.leaderId, t.id, t.title, c.id, c.name, r.status, r.note
+      )
+      FROM TopicRegistration r
+      JOIN StudentGroup g ON r.groupId = g.id
+      JOIN Topic t ON r.topicId = t.id
+      JOIN RegistrationCycle c ON g.cycleId = c.id
+      WHERE r.id = :id
+  """)
+  Optional<Views.RegistrationItem> findRegistrationItemById(@Param("id") Long id);
+
 }

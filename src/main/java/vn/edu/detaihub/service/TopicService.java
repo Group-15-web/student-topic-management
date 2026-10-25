@@ -11,6 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.edu.detaihub.dto.Forms;
 import vn.edu.detaihub.model.*;
 import vn.edu.detaihub.repository.DomainRepository;
+import vn.edu.detaihub.repository.CycleEligibleStudentRepository;
+import vn.edu.detaihub.repository.StudentRepository;
+import vn.edu.detaihub.model.CycleEligibleStudent;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import vn.edu.detaihub.security.ActorService;
 
 @Service
@@ -20,6 +27,8 @@ public class TopicService {
   private final DomainRepository db;
   private final ActorService actor;
   private final AuditService audit;
+  private final CycleEligibleStudentRepository eligibleRepo;
+  private final StudentRepository studentRepo;
 
   public static LocalDateTime now() {
     return LocalDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
@@ -110,15 +119,83 @@ public class TopicService {
     c.setMaxMembers(f.getMaxMembers());
     c.setReviewerCount(f.getReviewerCount());
     c.setCouncilRequired(f.isCouncilRequired());
+    c.setWhitelistRequired(f.isWhitelistRequired());
+    c.setTargetIntakes(f.getTargetIntakes() != null && !f.getTargetIntakes().trim().isEmpty() ? f.getTargetIntakes().trim() : null);
     c.setStatus(f.getStatus());
     db.save(c);
     audit.record("SAVE_CYCLE", "cycle", c.getId(), c.getName());
     return c.getId();
   }
 
+
+  @PreAuthorize("hasRole('FACULTY_MANAGER')")
+  public int importEligibleStudents(Long cycleId, MultipartFile file, String manualCodes) {
+    actor.need("FACULTY_MANAGER");
+    var c = db.get(RegistrationCycle.class, cycleId);
+    int count = 0;
+
+    Set<String> codesToProcess = new LinkedHashSet<>();
+
+    // 1. Đọc từ file CSV/Text nếu có
+    if (file != null && !file.isEmpty()) {
+      try (var reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+          line = line.trim();
+          if (line.startsWith("\uFEFF")) line = line.substring(1).trim();
+          if (line.isEmpty() || line.startsWith("#") || line.toLowerCase().startsWith("mssv")) continue;
+          // Hỗ trợ dòng có dấu phẩy hoặc tab (MSSV,GhiChu hoặc chỉ MSSV)
+          String[] parts = line.split("[,;\t]");
+          if (parts.length > 0 && !parts[0].trim().isEmpty()) {
+            codesToProcess.add(parts[0].trim());
+          }
+        }
+      } catch (Exception e) {
+        throw new vn.edu.detaihub.exception.RuleException("Lỗi khi đọc file danh sách: " + e.getMessage());
+      }
+    }
+
+    // 2. Đọc từ khung text copy-paste nếu có
+    if (manualCodes != null && !manualCodes.trim().isEmpty()) {
+      for (String row : manualCodes.split("[\r\n,;]+")) {
+        row = row.trim();
+        if (row.startsWith("\uFEFF")) row = row.substring(1).trim();
+        if (!row.isEmpty()) {
+          codesToProcess.add(row);
+        }
+      }
+    }
+
+    // 3. Xử lý lưu sinh viên hợp lệ vào whitelist
+    for (String code : codesToProcess) {
+      var studentOpt = studentRepo.findByCode(code);
+      if (studentOpt.isPresent()) {
+        Long studentId = studentOpt.get().getId();
+        if (!eligibleRepo.existsByCycleIdAndStudentId(cycleId, studentId)) {
+          var entry = new CycleEligibleStudent();
+          entry.setCycleId(cycleId);
+          entry.setStudentId(studentId);
+          entry.setNote("Đủ điều kiện tham gia đợt " + c.getName());
+          eligibleRepo.save(entry);
+          count++;
+        }
+      }
+    }
+
+    audit.record("IMPORT_WHITELIST", "cycle", cycleId, "Đã nạp " + count + " sinh viên vào đợt " + c.getName());
+    return count;
+  }
+
   public void deleteCycle(Long id) {
     actor.need("FACULTY_MANAGER");
-    db.delete(db.get(RegistrationCycle.class, id));
+    var c = db.get(RegistrationCycle.class, id);
+    boolean hasGroups = db.all(StudentGroup.class).stream().anyMatch(g -> Objects.equals(g.getCycleId(), id));
+    boolean hasTopics = db.all(Topic.class).stream().anyMatch(t -> Objects.equals(t.getCycleId(), id));
+    boolean hasCouncils = db.all(ReviewCouncil.class).stream().anyMatch(rc -> Objects.equals(rc.getCycleId(), id));
+    require(!hasGroups && !hasTopics && !hasCouncils,
+        "Không thể xóa đợt đăng ký đã phát sinh dữ liệu (đề tài, nhóm hoặc hội đồng). Vui lòng chuyển trạng thái đợt sang CLOSED thay vì xóa.");
+    eligibleRepo.deleteByCycleId(id);
+    db.delete(c);
     audit.record("DELETE_CYCLE", "cycle", id, "");
   }
 
