@@ -2,7 +2,7 @@
 
 Đồ án môn Lập trình Web, quản lý việc đề xuất đề tài, lập nhóm sinh viên, đăng ký, nộp báo cáo và chấm điểm.
 
-Website: [hcinnamon.world](https://hcinnamon.world). Ứng dụng đang chạy trên AWS EC2, tên miền mua tại Namecheap.
+Website: [hcinnamon.world](https://hcinnamon.world). Ứng dụng đang chạy trên AWS EC2.
 
 ## Công nghệ
 
